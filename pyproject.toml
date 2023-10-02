@@ -6,7 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "PyMotifs"
+name = "motifs"
 version = "0.0.0"
 authors = [{ name = "Antoine Silvestre de Sacy", email =  "antoinedesacy@gmail.com" }, { name = "Bruno Spilak", email = "bruno.spilak@gmail.com" }]
 description = "For linguistic generation of idiosyncratic features, i.e. 'motifs'"
@@ -18,12 +18,13 @@ classifiers = [
 	"Operating System :: OS Independent",
 ]
 requires-python = ">=3.10"
+dependencies = [
+	" coloredlogs >= 15.0.1",
+    "pandas >= 2.1.1"
+]
 
 [tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-mypkg = ["*.txt"]
+where = ["motifs"]
 
 [project.optional-dependencies]
 dev = ["black", "isort", "pytest", "pre-commit"]
