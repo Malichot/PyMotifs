@@ -1,13 +1,13 @@
-# PyMotifs : 
+# PyMotifs :
 
-## Présentation : 
+## Présentation :
 
 ## Création d'un environnement virtuel ?
 
-## Installation : 
+## Installation :
 
 pip install spacy-udpipe
 
-## 
+##
 
 Conda activate motifs
