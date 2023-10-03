@@ -47,5 +47,4 @@ coloredlogs.install(
     fmt="[%(name)s:%(filename)s:%(lineno)d] - [%(process)d] - %(asctime)s - %(levelname)s - %(message)s",
 )
 
-
 PKG_DATA_PATH = importlib_resources.files(__package__).joinpath("data")

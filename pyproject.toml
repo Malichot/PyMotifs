@@ -19,20 +19,21 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-	" coloredlogs >= 15.0.1",
-    "pandas >= 2.1.1"
+	"coloredlogs >= 15.0.1",
+    "pandas >= 2.1.1",
+	"spacy-udpipe >= 1.0.0"
 ]
 
 [tool.setuptools.packages.find]
 where = ["motifs"]
 
-[project.optional-dependencies]
-dev = ["black", "isort", "pytest", "pre-commit"]
-
 [project.urls]
 Homepage = "https://gitlab.huma-num.fr/adesacy/PyMotifs"
 
 [project.scripts]
+
+[project.optional-dependencies]
+dev = ["black", "isort", "pytest", "pre-commit"]
 
 [tool.black]
 line-length = 79
