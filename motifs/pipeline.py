@@ -4,6 +4,8 @@ from typing import Optional
 
 import pandas as pd
 import spacy_udpipe
+from spacy_udpipe.utils import LANGUAGES as UDPIPE_LANGUAGES
+from spacy_udpipe.utils import MODELS_DIR as UDPIPE_MODELS_DIR
 
 from motifs.config import LOGGER, PKG_DATA_PATH
 from utils import read_txt
@@ -11,6 +13,81 @@ from utils import read_txt
 BASE_MOTIFS = json.load(open(f"{PKG_DATA_PATH}/motifs.json", "r"))
 
 WORDS_PATH = os.path.join(PKG_DATA_PATH, "french")
+
+MORPH_BASED = {
+    "INF": {"VerbForm": "Inf"},
+    "PPAS": {"Tense": "Past", "VerbForm": "Part"},
+    "PPRES": {"Tense": "Pres", "VerbForm": "Part"},
+    "VSUBP": {"Mood": "Sub", "Tense": "Pres"},
+    "VSUBI": {"Mood": "Sub", "Tense": "Imp"},
+    "IMP": {"Mood": "Imp", "Tense": "Pres"},
+    "VCOND": {"Mood": "Cnd", "Tense": "Pres"},
+    "PRES": {"Mood": "Ind", "Tense": "Pres"},
+    "VIMP": {"Mood": "Ind", "Tense": "Imp"},
+    "VPS": {"Mood": "Ind", "Tense": "Past"},
+    "VF": {"Mood": "Ind", "Tense": "Fut"},
+    "DETPOSS": {"Poss": "Yes", "PronType": "Prs"},
+}
+POS_BASED = {
+    "ADV": "ADV",
+    "ADJ": "ADJ",
+    "NUM": "NUM",
+    "DETPOSS": "DETPOSS",
+    "NOUN": "NC",
+    "PROPN": "PROPN",
+    "INTJ": "INTJ",
+}
+PRONOUNS = {
+    # 1st
+    "je": "je",
+    "Je": "je",
+    "j": "je",
+    "J": "je",
+    "me": "je",  # TODO: me -> je or me -> me comme te -> te
+    "Me": "je",
+    # 2nd
+    "tu": "tu",
+    "Tu": "tu",
+    "te": "te",
+    "Te": "te",
+    # 3rd
+    "Il": "il",
+    "il": "il",
+    "Elle": "elle",
+    "elle": "elle",
+    "Se": "se",
+    "se": "se",
+    # 4th & 5th
+    "Nous": "nous",
+    "nous": "nous",
+    "Vous": "vous",
+    "vous": "vous",
+    # 6th
+    "Ils": "ils",
+    "ils": "ils",
+    "Elles": "elles",
+    "elles": "elles",
+}
+UNINFLECTED_WORDS = read_txt(os.path.join(WORDS_PATH, "mots_invariables.txt"))
+
+WORD_GROUPS = {
+    "ADVTOT": read_txt(os.path.join(WORDS_PATH, "adverbes_tot.txt")),
+    "ADVPHA": read_txt(os.path.join(WORDS_PATH, "adverbes_phase.txt")),
+    "ADVFRE": read_txt(os.path.join(WORDS_PATH, "adverbes_freq.txt")),
+    "ADVINT": read_txt(os.path.join(WORDS_PATH, "adverbes_intensite.txt")),
+    "ADVHAB": read_txt(os.path.join(WORDS_PATH, "adverbes_habitude.txt")),
+    "ADVMOD": read_txt(os.path.join(WORDS_PATH, "adverbes_modaux.txt")),
+    "ADVMAN": read_txt(os.path.join(WORDS_PATH, "adverbes_maniere.txt")),
+    "NCCOR": read_txt(os.path.join(WORDS_PATH, "parties_corps.txt")),
+    "NCABS": read_txt(os.path.join(WORDS_PATH, "noms_abstraits.txt")),
+}
+
+POS_DEP_BASED = {
+    "NCs": {"pos": "NOUN", "dep": "nsubj"},
+    "NCspas": {"pos": "NOUN", "dep": "nsubj:pass"},
+    "NCo": {"pos": "NOUN", "dep": "obj"},
+    "NCmod": {"pos": "NOUN", "dep": "nmod"},
+}
 
 
 class Pipeline:
@@ -23,6 +100,18 @@ class Pipeline:
     ):
         self.corpus_dir = corpus_dir
         self.output_dir = output_dir
+        if self.output_dir is not None:
+            if not os.path.isdir(self.output_dir):
+                LOGGER.debug(
+                    f"Creating output destination at {self.output_dir}"
+                )
+                os.makedirs(self.output_dir)
+            else:
+                LOGGER.debug(
+                    f"The destination folder {self.output_dir} already "
+                    f"exists, outputs will be overwritten!"
+                )
+
         self.corpus_path = {
             f: os.path.join(self.corpus_dir, f)
             for f in filter(
@@ -31,42 +120,12 @@ class Pipeline:
         }
         self.motifs = motifs
 
-        spacy_udpipe.download(lang)
+        if not UDPIPE_LANGUAGES[lang] in os.listdir(UDPIPE_MODELS_DIR):
+            spacy_udpipe.download(lang)
         self.nlp = spacy_udpipe.load(lang)
-        if lang == "fr":
-            self._uninflected_words = read_txt(
-                os.path.join(WORDS_PATH, "mots_invariables.txt")
-            )
-            self._advtot = read_txt(
-                os.path.join(WORDS_PATH, "adverbes_tot.txt")
-            )
-            self._advphase = read_txt(
-                os.path.join(WORDS_PATH, "adverbes_phase.txt")
-            )
-            self._advfreq = read_txt(
-                os.path.join(WORDS_PATH, "adverbes_freq.txt")
-            )
-            self._advintensite = read_txt(
-                os.path.join(WORDS_PATH, "adverbes_intensite.txt")
-            )
-            self._advhabitude = read_txt(
-                os.path.join(WORDS_PATH, "adverbes_habitude.txt")
-            )
-            self._advmodaux = read_txt(
-                os.path.join(WORDS_PATH, "adverbes_modaux.txt")
-            )
-            self._advmaniere = read_txt(
-                os.path.join(WORDS_PATH, "adverbes_maniere.txt")
-            )
-            self._nccorps = read_txt(
-                os.path.join(WORDS_PATH, "parties_corps.txt")
-            )
-            self._nccabs = read_txt(
-                os.path.join(WORDS_PATH, "noms_abstraits.txt")
-            )
 
     @staticmethod
-    def load_corpus(path) -> str:
+    def load_txt(path) -> str:
         """
         :param path: file path
         :return: content of file
@@ -84,7 +143,7 @@ class Pipeline:
             LOGGER.exception(f"Error while loading {path}...")
             raise exc
 
-    def transform(self, text):
+    def transform_text(self, text):
         return pd.DataFrame(
             (
                 (
@@ -111,7 +170,23 @@ class Pipeline:
             ],
         )
 
-    def transform_token(self, token) -> str:
+    def transform_corpus(self, save: bool = False):
+        for file in self.corpus_path:
+            data = self.transform_text(self.load_txt(self.corpus_path[file]))
+            data["filename"] = file
+            if save:
+                assert self.output_dir is not None
+                filename = file.split(".txt")[0]
+                data.to_csv(f"{self.output_dir}/{filename}.csv", index=False)
+            yield data
+
+    def transform(self, save: bool = False):
+        return pd.concat(
+            [d for d in self.transform_corpus(save=save)], ignore_index=True
+        )
+
+    @staticmethod
+    def transform_token(token) -> str:
         motif = token.lemma_
         # Remplacement des pos auxiliaires pour les conserver dans les motifs :
         # Preprocessing
@@ -121,137 +196,36 @@ class Pipeline:
             return "avoir"
 
         morph = token.morph.to_dict()
-        # Infinitifs :
-        if morph.get("VerbForm") == "Inf":
-            return "INF"
-        # Participe Passé :
-        elif morph.get("Tense") == "Past" and morph.get("VerbForm") == "Part":
-            return "PPAS"
-        # Participe Présent :
-        elif morph.get("Tense") == "Pres" and morph.get("VerbForm") == "Part":
-            return "PPRES"
-        # Subjonctif présent :
-        elif morph.get("Mood") == "Sub" and morph.get("Tense") == "Pres":
-            return "VSUBP"
-        # Subjonctif imparfait :
-        elif morph.get("Mood") == "Sub" and morph.get("Tense") == "Imp":
-            return "VSUBI"
-        # Impératif présent :
-        elif morph.get("Mood") == "Imp" and morph.get("Tense") == "Pres":
-            return "IMP"
-        # Conditionnel:
-        elif morph.get("Mood") == "Cnd" and morph.get("Tense") == "Pres":
-            return "VCOND"
-        # Indicatif présent :
-        elif morph.get("Mood") == "Ind" and morph.get("Tense") == "Pres":
-            return "PRES"
-        # Imparfait :
-        elif morph.get("Mood") == "Ind" and morph.get("Tense") == "Imp":
-            return "VIMP"
-        # Passé simple :
-        elif morph.get("Mood") == "Ind" and morph.get("Tense") == "Past":
-            return "VPS"
-        # Futur :
-        elif morph.get("Mood") == "Ind" and morph.get("Tense") == "Fut":
-            return "VF"
-        # Determinants possessifs :
-        elif morph.get("Poss") == "Yes" and morph.get("PronType") == "Prs":
-            return "DETPOSS"
-        else:
-            pass
+        for m in MORPH_BASED:
+            m_cond = MORPH_BASED[m]
+            if all([morph.get(c) == m_cond[c] for c in m_cond]):
+                return m
 
-        # TODO: assert that intersection of words lists is empty: no overlaps
         # Pour les mots invariables, le motif est le mot:
-        if token.text in self._uninflected_words:
+        if token.text in UNINFLECTED_WORDS:
             return token.text
 
-        word_groups = {
-            "ADVTOT": self._advtot,
-            "ADVPHA": self._advphase,
-            "ADVFRE": self._advfreq,
-            "ADVINT": self._advintensite,
-            "ADVHAB": self._advhabitude,
-            "ADVMOD": self._advmodaux,
-            "ADVMAN": self._advmaniere,
-            "NCCOR": self._nccorps,
-            "NCABS": self._nccabs,
-        }
-        for m in word_groups:
-            if token.lemma_ in word_groups[m]:
+        # TODO: assert that intersection of words lists is empty: no overlaps
+        for m in WORD_GROUPS:
+            if token.lemma_ in WORD_GROUPS[m]:
                 return m
-        # if token.lemma_ in self._advtot:
-        #     return "ADVTOT"
-        # elif token.lemma_ in self._advphase:
-        #     return "ADVPHA"
-        # elif token.lemma_ in self._advfreq:
-        #     return "ADVFRE"
-        # elif token.lemma_ in self._advintensite:
-        #     return "ADVINT"
-        # elif token.lemma_ in self._advhabitude:
-        #     return "ADVHAB"
-        # elif token.lemma_ in self._advmodaux:
-        #     return "ADVMOD"
-        # elif token.lemma_ in self._advmaniere:
-        #     return "ADVMAN"
-        # # Noms communs abstraits, parties du corps :
-        # # Parties du corps :
-        # elif token.lemma_ in self._nccorps:
-        #     return "NCCOR"
-        # # Noms abstraits :
-        # elif token.lemma_ in self._nccabs:
-        #     return "NCABS"
+
+        # S/O : prise en compte des fonctions grammaticales.
+        for m in POS_DEP_BASED:
+            m_cond = POS_DEP_BASED[m]
+            if token.pos_ == m_cond["pos"] and token.dep_ == m_cond["dep"]:
+                return m
 
         # Conservation des autres étiquettes morphosyntaxiques restantes :
         # pos
-        pos = {
-            "ADV": "ADV",
-            "ADJ": "ADJ",
-            "NUM": "NUM",
-            "DETPOSS": "DETPOSS",
-            "NOUN": "NC",
-            "PROPN": "PROPN",
-            "INTJ": "INTJ",
-        }
-        for p in pos:
-            if token.text == p:
-                return pos[p]
+        for p in POS_BASED:
+            if token.pos_ == p:
+                return POS_BASED[p]
 
         # Conservation des pronoms personnels :
-        # 1st:
-        words = {
-            # 1st
-            "je": "je",
-            "Je": "je",
-            "j": "je",
-            "J": "je",
-            "me": "je",  # TODO: me -> je or me -> me comme te -> te
-            "Me": "je",
-            # 2nd
-            "tu": "tu",
-            "Tu": "tu",
-            "te": "te",
-            "Te": "te",
-            # 3rd
-            "Il": "il",
-            "il": "il",
-            "Elle": "elle",
-            "elle": "elle",
-            "Se": "se",
-            "se": "se",
-            # 4th & 5th
-            "Nous": "nous",
-            "nous": "nous",
-            "Vous": "vous",
-            "vous": "vous",
-            # 6th
-            "Ils": "ils",
-            "ils": "ils",
-            "Elles": "elles",
-            "elles": "elles",
-        }
-        for w in words:
+        for w in PRONOUNS:
             if token.text == w:
-                return words[w]
+                return PRONOUNS[w]
 
         # Guillemets anglais :
         if token.lemma_ == "«":
@@ -260,14 +234,3 @@ class Pipeline:
             return '"'
 
         return motif
-
-
-def is_vsubp(token):
-    morph = token.morph.to_dict()
-    if morph.get("Mood") == "Sub" and morph.get("Tense") == "Pres":
-        return "VSUBP"
-
-
-"""
-could do a for loop with a break or while
-"""
