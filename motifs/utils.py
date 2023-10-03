@@ -29,6 +29,22 @@ from motifs.config import LOGGER, PKG_DATA_PATH
 WORDS_PATH = os.path.join(PKG_DATA_PATH, "french")
 
 
+def read_txt(path, sep=",\n"):
+    try:
+        with open(path, mode="r") as f:
+            content = f.read()
+    except Exception as exc:
+        LOGGER.exception(f"Error while loading {path}...")
+        raise exc
+
+    # Handle case where string ends with sep to avoid having an empty
+    # element in final list
+    if content[-len(sep) :] == sep:
+        content = content[: -len(sep)]
+
+    return content.split(sep)
+
+
 def load_corpus(path: str) -> dict:
     """
     Read all texts inside the folder path and put them into a dictionary.
@@ -358,10 +374,8 @@ def transform(
     # On remplace les POS par les mots pour conserver ces mots invariables
     # dans les conservations futures des POS pour les motifs :
     idminv = df["words"].isin(mots_inv)
-
     # Check wich is True ie which POS are to be replaced by their lemma value
     pos_to_replace = np.where(idminv)[0]
-
     # Replace them :
     df["pos"][pos_to_replace] = df["words"][pos_to_replace]
 
