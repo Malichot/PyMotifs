@@ -1,0 +1,5 @@
+{
+    "INF":  {"morph": {"VerbForm": "Inf"}},
+    "PPAS": {"morph": {"Tense":"Past", "VerbForm":"Part"}},
+    "NCs": {"pos": "NOUN", "dep": "nsubj"}
+}
