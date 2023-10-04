@@ -41,6 +41,9 @@ def read_txt(path, sep=",\n"):
     # element in final list
     if content[-len(sep) :] == sep:
         content = content[: -len(sep)]
+    # Remove final breakline
+    if content[-1:] == "\n":
+        content = content[:-1]
 
     return content.split(sep)
 

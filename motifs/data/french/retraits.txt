@@ -1,8 +1,0 @@
-espèce,
-jour,
-nuit,
-pas vrai,
-autre,
-an,
-point, # peut entraîner des ambiguïtés avec le NC
-fort,
