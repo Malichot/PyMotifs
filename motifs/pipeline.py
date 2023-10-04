@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 import spacy_udpipe
@@ -15,24 +15,35 @@ BASE_MOTIFS = json.load(open(f"{PKG_DATA_PATH}/fr_motifs.json", "r"))
 
 class Pipeline:
     """
+    This pipeline transforms a corpus of documents to tokens with linguistic
+    informations and motifs.
 
-    :param corpus_dir:
-    :param output_dir:
-    :param lang:
-    :param motifs:
+    :param corpus_dir: The folder where the corpus is located. The corpus
+    must contain at least one document as a .txt file.
+    :param motifs: A dictionary of motif with the following structure
+    dict[list[dict[any]], that is for example: {"motif1": pattern1,
+    "motif2": pattern2}, where each pattern is a rule for the token Matcher
+    (see https://spacy.io/usage/rule-based-matching for more details).
+    A simple example with one motif "ADJ" would be:
+    `motif = {"ADJ": [{"POS": "ADJ"}]}`. Each token with `pos` attribute
+    equal to "ADJ" will be annotated with the motif "ADJ".
+    You can check the `BASE_MOTIFS` for more examples and spacy Matcher to
+    create your own motif.
+    :param output_dir: The folder where to save the outputs.
+    :param lang: language for the udpipe model (default is "fr")
 
     :Example:
 
-    >>> pipe = Pipeline(path, output_dir="output_pipeline", motifs=BASE_MOTIFS)
+    >>> pipe = Pipeline(path, motifs=BASE_MOTIFS, output_dir="output_pipeline")
     >>> data = pipe.transform(save=True)
     """
 
     def __init__(
         self,
         corpus_dir: str,
+        motifs: dict[list[dict[Any]]] = BASE_MOTIFS,
         output_dir: Optional[str] = None,
         lang: str = "fr",
-        motifs: list[dict] = BASE_MOTIFS,
     ):
         self.corpus_dir = corpus_dir
         self.output_dir = output_dir
@@ -81,10 +92,11 @@ class Pipeline:
             LOGGER.exception(f"Error while loading {path}...")
             raise exc
 
-    def transform_text(self, text: str):
+    def transform_text(self, text: str, validate: bool = False):
         """
         Transform a text to tokens with linguistic informations and motifs
         :param text:
+        :param validate: Validate Matcher pattern, see Spacy
         :return: data, a DataFrame with columns ["word", "lemma", "pos",
         "morph", "dep", "n_lefts", "n_rights", "motif"]. See token Spacy
         documentation for more information.
@@ -120,7 +132,7 @@ class Pipeline:
             ],
         )
         # Initialize matcher
-        matcher = Matcher(self.nlp.vocab, validate=True)
+        matcher = Matcher(self.nlp.vocab, validate=validate)
         for m in self.motifs:
             matcher.add(m, [self.motifs[m]])
         # Apply it to the doc
@@ -154,9 +166,11 @@ class Pipeline:
 
         return data
 
-    def transform_corpus(self, save: bool = False):
+    def transform_corpus(self, save: bool = False, **kwargs):
         for file in self.corpus_path:
-            data = self.transform_text(self.load_txt(self.corpus_path[file]))
+            data = self.transform_text(
+                self.load_txt(self.corpus_path[file]), **kwargs
+            )
             # Add filename columns
             data["filename"] = file
             if save:
@@ -165,7 +179,8 @@ class Pipeline:
                 data.to_csv(f"{self.output_dir}/{filename}.csv", index=False)
             yield data
 
-    def transform(self, save: bool = False):
+    def transform(self, save: bool = False, **kwargs):
         return pd.concat(
-            [d for d in self.transform_corpus(save=save)], ignore_index=True
+            [d for d in self.transform_corpus(save=save, **kwargs)],
+            ignore_index=True,
         )
