@@ -23,7 +23,7 @@ class Pipeline:
 
     :Example:
 
-    >>> pipe = Pipeline(path, output_dir="output_pipeline")
+    >>> pipe = Pipeline(path, output_dir="output_pipeline", motifs=BASE_MOTIFS)
     >>> data = pipe.transform(save=True)
     """
 
