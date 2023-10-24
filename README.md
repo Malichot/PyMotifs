@@ -1,21 +1,21 @@
-# PyMotifs :
+# PyMotifs:
 
-## Présentation :
+## Motivation:
 
-## Installation :
+## Installation:
 
-### Création d'un environnement virtuel
+### Create a virtual environment
 
-Avec conda: `conda create -n pymotifs python=3.10`
+With conda: `conda create -n pymotifs python=3.10`
 
-### Pour utiliser la dernière version du paquet
+### To use the last stable version of the package
 
-- clonez la branch `main`du paquet
-- Activez l'environnement: `conda activate pymotifs`
-- Commande `pip install .` à la source du repo
+- Clone the `main` branch
+- Activate your environment: `conda activate pymotifs`
+- Install with `pip install .` at the source
 
-### Installation pour le développement
+### Install development branch
 
-- Commande `pip install ."[dev]"` à la source du repo
-- Installez les hooks de pre-commit avec `pre-commit install`
-- Commencez à coder
+- Install with `pip install ."[dev]"` at the source
+- Install pre-commit hooks with `pre-commit install`
+- Start to code
