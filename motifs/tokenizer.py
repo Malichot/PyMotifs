@@ -13,7 +13,7 @@ from motifs.config import LOGGER, PKG_DATA_PATH
 BASE_MOTIFS = json.load(open(f"{PKG_DATA_PATH}/fr_motifs.json", "r"))
 
 
-class Pipeline:
+class MotifTokenizer:
     """
     This pipeline transforms a corpus of documents to tokens with linguistic
     informations and motifs.
@@ -97,7 +97,7 @@ class Pipeline:
         Transform a text to tokens with linguistic informations and motifs
         :param text:
         :param validate: Validate Matcher pattern, see Spacy
-        :return: data, a DataFrame with columns ["word", "lemma", "pos",
+        :return: data, a DataFrame with columns ["text", "lemma", "pos",
         "morph", "dep", "n_lefts", "n_rights", "motif"]. See token Spacy
         documentation for more information.
         """
@@ -121,7 +121,7 @@ class Pipeline:
                 for token in self.nlp(text)
             ),
             columns=[
-                "word",
+                "text",
                 "lemma",
                 "pos",
                 "morph",
