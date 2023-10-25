@@ -69,8 +69,10 @@ def plot_pca_projection(pca, var_names):
     plt.show()
 
 
-def pca_variable_plot(data, pca, colwrap=3, max_plots=50):
+def pca_variable_plot(data, pca, n_components=None, colwrap=3, max_plots=50):
     factors = pca.transform(data)
+    if n_components:
+        factors = factors[:, :n_components]
     pairs = list(itertools.combinations(list(range(factors.shape[-1])), 2))
     if len(pairs) > max_plots:
         LOGGER.error(
