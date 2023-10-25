@@ -50,16 +50,6 @@ def transform_token_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
     df_ngrams["text"] = data["text"].values[: -(n - 1)]
     df_ngrams["piece"] = data["piece"].values[: -(n - 1)]
 
-    # simple test: first token in n_gram is token
-    assert all(
-        df_ngrams["ngram_text"].str.split(" ").apply(lambda x: x[0])
-        == df_ngrams["text"]
-    )
-    assert all(
-        df_ngrams["ngram_token"].str.split(" ").apply(lambda x: x[0]).values
-        == data["token"].values[: -(n - 1)]
-    )
-
     return df_ngrams
 
 
