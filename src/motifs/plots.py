@@ -1,8 +1,11 @@
+import itertools
+import math
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from statsmodels.multivariate.pca import PCA
+from sklearn.decomposition import PCA
 
 from motifs.config import LOGGER
 
@@ -43,9 +46,7 @@ def plot_tf_idf(
 
 
 def plot_explained_variance_ratio(pca: PCA):
-    ratio = pca.eigenvals / np.sum(pca.eigenvals)
-    plots = sns.barplot(ratio * 100)
-
+    plots = sns.barplot(pca.explained_variance_ratio_ * 100)
     plots.set(ylabel="Explained variance ratio", ylim=[0, 100])
     for bar in plots.patches:
         plots.annotate(
@@ -60,7 +61,91 @@ def plot_explained_variance_ratio(pca: PCA):
     # plt.close()
 
 
-def pca_variable_plot(pca: PCA):
+def plot_pca_projection(pca, var_names):
+    loadings = pd.DataFrame(pca.components_.T, index=var_names)
+    sns.heatmap(
+        loadings, cmap="bwr", square=pca.components_.shape[0] == len(var_names)
+    )
+    plt.show()
+
+
+def pca_variable_plot(data, pca, colwrap=3, max_plots=50):
+    factors = pca.transform(data)
+    pairs = list(itertools.combinations(list(range(factors.shape[-1])), 2))
+    if len(pairs) > max_plots:
+        LOGGER.error(
+            f"Number of plots larger than max_plots={max_plots}. If you "
+            f"really want to produce {len(pairs)} plots, then increase "
+            f"max_plots. Aborting."
+        )
+        return
+    if len(pairs) >= colwrap:
+        ncol = colwrap
+    else:
+        ncol = len(pairs)
+    nrow = math.ceil(len(pairs) / colwrap)
+
+    row = 0
+    fig, axs = plt.subplots(nrow, ncol, figsize=(5 * ncol, 5 * nrow))
+
+    for i, pair in enumerate(pairs):
+        if i % colwrap == 0 and i >= 3:
+            row += 1
+        col = i % colwrap
+        pca_variable_2dplot(
+            data, factors[:, [pair[0], pair[1]]], ax=axs[row, col]
+        )
+
+    # Remove extra empty axes
+    if (nrow * ncol - len(pairs)) > 0:
+        for i in range(colwrap - (nrow * ncol - len(pairs)), colwrap):
+            axs[row, i].set_axis_off()
+
+    plt.show()
+
+
+def pca_variable_2dplot(data: pd.DataFrame, factors, ax):
+    assert factors.shape[-1] == 2
+    t = np.linspace(0, np.pi * 2, 100)
+    corr_ = pd.DataFrame(
+        [
+            [
+                np.corrcoef(data.values[:, i], factors[:, 0])[0, 1]
+                for i in range(data.shape[-1])
+            ],
+            [
+                np.corrcoef(data.values[:, i], factors[:, 1])[0, 1]
+                for i in range(data.shape[-1])
+            ],
+        ],
+        columns=data.columns,
+        index=["comp_0", "comp_1"],
+    ).T
+
+    for i in range(data.shape[-1]):
+        ax.annotate(
+            corr_.index[i],
+            xy=(corr_["comp_0"].values[i], corr_["comp_1"].values[i]),
+            xytext=(corr_["comp_0"].values[i], corr_["comp_1"].values[i]),
+        )
+
+    for i in range(data.shape[-1]):
+        ax.annotate(
+            "",
+            xy=(corr_["comp_0"].values[i], corr_["comp_1"].values[i]),
+            xytext=(0, 0),
+            arrowprops=dict(arrowstyle="->"),
+        )
+
+    ax.plot(np.cos(t), np.sin(t), linewidth=1, c="black")
+    # ax.set_box_aspect(1)
+    ax.set_aspect("equal")
+    ax.grid(True, which="both")
+    ax.axhline(y=0, color="k")
+    ax.axvline(x=0, color="k")
+
+
+def pca_variable_plot_old(pca: PCA):
     t = np.linspace(0, np.pi * 2, 100)
     fig, ax = plt.subplots(1, 1)
 

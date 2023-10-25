@@ -1,10 +1,15 @@
-from statsmodels.multivariate.pca import PCA
+import datetime as dt
+import os
+from typing import Optional
+
+import pandas as pd
 
 from motifs.config import LOGGER
 from motifs.constants import AVAILABLE_FEATURES, AVAILABLE_METHODS
 from motifs.plots import (
     pca_variable_plot,
     plot_explained_variance_ratio,
+    plot_pca_projection,
     plot_tf_idf,
 )
 from motifs.tokenizer import Tokenizer
@@ -43,27 +48,77 @@ def verify_feature(features: list[dict]):
             raise NotImplementedError
 
 
+def load_tokens_from_directory(dir_):
+    files = [f for f in os.listdir(dir_) if f.endswith(".csv")]
+    tokens = pd.concat(
+        [pd.read_csv(f"{dir_}/{f}") for f in files], ignore_index=True
+    )
+    return tokens
+
+
 class Pipeline:
     """
 
-    :param target: name of the target variable of interest, should be one of
-    AVAILABLE_TARGET
-    :param features: list of features configuration
-    :param  **kwargs: extra keyword arguments of tokenizer.Tokenizer
+    :param token_type: type of the token to use for the analysis. Should be
+    one of ["text", "lemma", "pos", "motif"]
+    :param features: list of features configuration. For now only a list of
+    a single feature is implemented.
+    :param tokens_dir: The folder where the tokens for each text is located.
+    The tokens should be stored in a csv file obtained from `transform_corpus`
+    of `motifs.tokenizer.Tokenizer`. This is used by default.
+    :param corpus_dir: If the tokens_dir is not provided, then the Pipeline
+    will perform tokenization on corpus_dir (cf motifs.tokenizer.Tokenizer)
+    :param save:
+    :param kwargs:
     """
 
     def __init__(
-        self, corpus_dir: str, token_type: str, features: list[dict], **kwargs
+        self,
+        token_type: str,
+        features: list[dict],
+        tokens_dir: Optional[str] = None,
+        corpus_dir: Optional[str] = None,
+        save: bool = True,
+        **kwargs,
     ):
         self.token_type = token_type
         verify_feature(features)
-
         self.features = features
+        if save:
+            self.output_dir = (
+                f"{os.getcwd()}/"
+                + f"{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}_pipeline"
+            )
+            if not os.path.isdir(self.output_dir):
+                LOGGER.debug(
+                    f"Creating output destination at {self.output_dir}"
+                )
+                os.makedirs(self.output_dir)
+            else:
+                LOGGER.debug(
+                    f"The destination folder {self.output_dir} already "
+                    f"exists, outputs will be overwritten!"
+                )
+            tokenizer_dir = os.path.join(self.output_dir, "tokens")
 
-        self.tokenizer = Tokenizer(
-            corpus_dir=corpus_dir, token_type=token_type, **kwargs
-        )
-        self.__tokens = self.tokenizer.transform()
+        else:
+            self.output_dir = None
+            tokenizer_dir = None
+
+        if tokens_dir is not None:
+            self.__tokens = load_tokens_from_directory(tokens_dir)
+        else:
+            if corpus_dir is None:
+                LOGGER.error("You must pass tokens_dir or corpus_dir!")
+                raise ValueError
+            self.tokenizer = Tokenizer(
+                corpus_dir=corpus_dir,
+                token_type=token_type,
+                output_dir=tokenizer_dir,
+                **kwargs,
+            )
+            self.__tokens = self.tokenizer.transform(save=save)
+
         self.__tokens.rename({self.token_type: "token"}, axis=1, inplace=True)
 
         self.__features_data = None
@@ -80,7 +135,7 @@ class Pipeline:
         :return:
         """
         assert method in AVAILABLE_METHODS
-        self.__ngrams = transform_corpus_to_ngrams(self.token, n)
+        self.__ngrams = transform_corpus_to_ngrams(self.tokens, n)
 
         # Remove empty cells (just in case)
         empty_cells = self.__ngrams.apply(lambda x: x.apply(len)) != 0
@@ -104,19 +159,31 @@ class Pipeline:
                 raise NotImplementedError
 
         if method == "pca":
-            pca = PCA(
-                self.features_data.pivot_table(
-                    index="token", columns=["piece"], values=feature["name"]
-                ),
-                standardize=True,
+            from sklearn.decomposition import PCA
+            from sklearn.preprocessing import StandardScaler
+
+            temp = self.features_data.pivot_table(
+                index="token", columns=["piece"], values=feature["name"]
             )
+            pieces = temp.columns
+
+            # Normalize the input data
+            scaler = StandardScaler()
+            temp = scaler.fit_transform(temp)
+            temp = pd.DataFrame(temp, columns=pieces)
+
+            pca = PCA(n_components=temp.shape[-1])
+            pca.fit(temp)
+
             if plot:
                 plot_explained_variance_ratio(pca)
-                pca_variable_plot(pca)
+                plot_pca_projection(pca, pieces)
+                pca_variable_plot(temp, pca, colwrap=4)
+
             self.__transformer = pca
 
     @property
-    def token(self):
+    def tokens(self):
         return self.__tokens
 
     @property
