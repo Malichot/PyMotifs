@@ -221,7 +221,11 @@ class Tokenizer:
         return data
 
     def transform_corpus(self, save: bool = False, **kwargs):
-        for file in self.corpus_path:
+        for i, file in enumerate(self.corpus_path):
+            LOGGER.debug(
+                f"Steps to go {len(self.corpus_path) - i}: tokenizing"
+                f" {file}..."
+            )
             data = self.transform_text(
                 self.load_txt(self.corpus_path[file]), **kwargs
             )
@@ -231,6 +235,7 @@ class Tokenizer:
             if save:
                 assert self.output_dir is not None
                 data.to_csv(f"{self.output_dir}/{filename}.csv", index=False)
+            LOGGER.debug(f"Done with {file}.")
             yield data
 
     def transform(self, save: bool = False, **kwargs):
