@@ -1,6 +1,7 @@
 import itertools
 import math
 
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -70,6 +71,13 @@ def plot_pca_projection(pca, var_names):
 
 
 def pca_variable_plot(data, pca, n_components=None, colwrap=3, max_plots=50):
+    names = list(data.columns)
+    if len(names) > 10:
+        cm = plt.get_cmap("gist_rainbow")
+        colors = [cm(1.0 * i / len(names)) for i in range(len(names))]
+    else:
+        colors = list(mcolors.TABLEAU_COLORS.values())
+
     factors = pca.transform(data)
     if n_components:
         factors = factors[:, :n_components]
@@ -88,20 +96,37 @@ def pca_variable_plot(data, pca, n_components=None, colwrap=3, max_plots=50):
     nrow = math.ceil(len(pairs) / colwrap)
 
     row = 0
-    fig, axs = plt.subplots(nrow, ncol, figsize=(5 * ncol, 5 * nrow))
+    height = 5
+    fig, axs = plt.subplots(nrow, ncol, figsize=(height * ncol, height * nrow))
 
-    for i, pair in enumerate(pairs):
-        if i % colwrap == 0 and i >= 3:
-            row += 1
-        col = i % colwrap
-        pca_variable_2dplot(
-            data, factors[:, [pair[0], pair[1]]], ax=axs[row, col]
-        )
+    if nrow * ncol == 1:
+        pca_variable_2dplot(data, factors, ax=axs)
+        ax = axs
+    else:
+        if nrow > 1:
+            for i, pair in enumerate(pairs):
+                if i % colwrap == 0 and i >= 3:
+                    row += 1
+                col = i % colwrap
+                pca_variable_2dplot(
+                    data, factors[:, [pair[0], pair[1]]], ax=axs[row, col]
+                )
+            # Remove extra empty axes
+            if (nrow * ncol - len(pairs)) > 0:
+                for i in range(colwrap - (nrow * ncol - len(pairs)), colwrap):
+                    axs[row, i].set_axis_off()
 
-    # Remove extra empty axes
-    if (nrow * ncol - len(pairs)) > 0:
-        for i in range(colwrap - (nrow * ncol - len(pairs)), colwrap):
-            axs[row, i].set_axis_off()
+            ax = axs[0, 0]
+        else:
+            for col, pair in enumerate(pairs):
+                pca_variable_2dplot(
+                    data, factors[:, [pair[0], pair[1]]], ax=axs[col]
+                )
+            ax = axs[0]
+
+    for i, name in enumerate(names):
+        y = -i / height + 1
+        ax.text(-5, y, name, fontsize=12, color=colors[i])
 
     plt.show()
 
@@ -124,23 +149,22 @@ def pca_variable_2dplot(data: pd.DataFrame, factors, ax):
         index=["comp_0", "comp_1"],
     ).T
 
-    for i in range(data.shape[-1]):
-        ax.annotate(
-            corr_.index[i],
-            xy=(corr_["comp_0"].values[i], corr_["comp_1"].values[i]),
-            xytext=(corr_["comp_0"].values[i], corr_["comp_1"].values[i]),
-        )
+    num_vars = data.shape[-1]
+    if num_vars > 10:
+        cm = plt.get_cmap("gist_rainbow")
+        colors = [cm(1.0 * i / num_vars) for i in range(num_vars)]
+    else:
+        colors = list(mcolors.TABLEAU_COLORS.values())
 
-    for i in range(data.shape[-1]):
+    for i in range(num_vars):
         ax.annotate(
             "",
             xy=(corr_["comp_0"].values[i], corr_["comp_1"].values[i]),
             xytext=(0, 0),
-            arrowprops=dict(arrowstyle="->"),
+            arrowprops=dict(arrowstyle="->", color=colors[i]),
         )
 
     ax.plot(np.cos(t), np.sin(t), linewidth=1, c="black")
-    # ax.set_box_aspect(1)
     ax.set_aspect("equal")
     ax.grid(True, which="both")
     ax.axhline(y=0, color="k")
