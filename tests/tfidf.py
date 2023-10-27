@@ -50,8 +50,8 @@ if __name__ == "__main__":
     import pandas as pd
 
     from motifs.config import PKG_DATA_PATH
+    from motifs.features import motif_tfidf, transform_token_to_ngrams
     from motifs.tokenizer import MotifTokenizer
-    from motifs.utils import motif_tfidf, transform_token_to_ngrams
 
     CORPUS_PATH = PKG_DATA_PATH.joinpath("corpus_test")
     pipe = MotifTokenizer(CORPUS_PATH)

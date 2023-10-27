@@ -6,6 +6,11 @@ import pandas as pd
 
 from motifs.config import LOGGER
 from motifs.constants import AVAILABLE_FEATURES, AVAILABLE_METHODS
+from motifs.features import (
+    build_tfidf,
+    build_token_freq,
+    transform_corpus_to_ngrams,
+)
 from motifs.plots import (
     pca_variable_plot,
     plot_explained_variance_ratio,
@@ -13,11 +18,6 @@ from motifs.plots import (
     plot_tf_idf,
 )
 from motifs.tokenizer import Tokenizer
-from motifs.utils import (
-    build_tfidf,
-    build_token_freq,
-    transform_corpus_to_ngrams,
-)
 
 """
 feature = [{

@@ -1,7 +1,7 @@
 import pandas as pd
 
 from motifs.config import LOGGER
-from motifs.utils import ngrams_to_text
+from motifs.features import ngrams_to_text
 
 
 def transform_token_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:

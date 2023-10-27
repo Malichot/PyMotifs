@@ -1,4 +1,4 @@
-from motifs.utils import Motif
+from motifs.features import Motif
 
 motif = {"motif": {"morph": "morph"}}
 
