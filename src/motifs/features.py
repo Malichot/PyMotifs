@@ -23,8 +23,8 @@ def transform_corpus_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
     """
     data = pd.concat(
         [
-            transform_token_to_ngrams(data[data["piece"] == f], n)
-            for f in data.piece.unique()
+            transform_token_to_ngrams(data[data["doc"] == f], n)
+            for f in data.doc.unique()
         ],
         ignore_index=True,
     )
@@ -49,23 +49,23 @@ def transform_token_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
     assert len(data) - len(df_ngrams) == n - 1
 
     df_ngrams["text"] = data["text"].values[: -(n - 1)]
-    df_ngrams["piece"] = data["piece"].values[: -(n - 1)]
+    df_ngrams["doc"] = data["doc"].values[: -(n - 1)]
 
     return df_ngrams
 
 
 def build_tfidf(data: pd.DataFrame, log: bool = True) -> pd.DataFrame:
-    if not set(["token", "piece"]).issubset(set(data.columns)):
+    if not set(["token", "doc"]).issubset(set(data.columns)):
         LOGGER.error(
-            "Wrong columns names: ['token', 'piece'] are not in the data"
+            "Wrong columns names: ['token', 'doc'] are not in the data"
         )
         raise AssertionError
 
-    doc_names = list(set(data["piece"]))
+    doc_names = list(set(data["doc"]))
     # frequency of each motif per document
     counts = (
-        pd.DataFrame(data.groupby("piece")["token"].value_counts())
-        .pivot_table(columns="piece", index="token", values="count")
+        pd.DataFrame(data.groupby("doc")["token"].value_counts())
+        .pivot_table(columns="doc", index="token", values="count")
         .fillna(0)
         .astype(int)
     )
@@ -85,28 +85,28 @@ def build_tfidf(data: pd.DataFrame, log: bool = True) -> pd.DataFrame:
     tfidf = pd.DataFrame(
         tfidf.stack().sort_values(ascending=False)
     ).reset_index()
-    tfidf.columns = ["token", "piece", "tfidf"]
+    tfidf.columns = ["token", "doc", "tfidf"]
 
     return tfidf
 
 
 def build_token_freq(data, freq_filter=2, n_motifs=None) -> pd.DataFrame():
-    if not set(["token", "piece"]).issubset(set(data.columns)):
+    if not set(["token", "doc"]).issubset(set(data.columns)):
         LOGGER.error(
-            "Wrong columns names: ['token', 'piece'] are not in the data"
+            "Wrong columns names: ['token', 'doc'] are not in the data"
         )
         raise AssertionError
 
     # Denumbering
     data = (
-        data.groupby("piece")["token"]
+        data.groupby("doc")["token"]
         .value_counts(sort=True, ascending=False)
         .reset_index()
     )
     # Filtering low freq motifs
     if n_motifs is not None:
         # Select n first motifs for each text
-        data = data.groupby("piece").head(10)
+        data = data.groupby("doc").head(10)
     else:
         assert freq_filter is not None, "You must give a freq_filter!"
         # Select motifs that appear at least freq_filter times
@@ -132,17 +132,17 @@ def build_specificity(ngrams, u: float = 0.5):
     assert 0 <= u <= 1
     # f: the frequence of a token in the part
     corpus_grams = build_token_freq(ngrams, freq_filter=0)
-    corpus_grams = corpus_grams.set_index("piece")
+    corpus_grams = corpus_grams.set_index("doc")
     corpus_grams.rename({"freq": "f"}, axis=1, inplace=True)
 
     # Format it as table to ease computation of F, t, T
     corpus_grams = corpus_grams.pivot_table(
-        index="token", columns="piece", values="f"
+        index="token", columns="doc", values="f"
     )
     # F: the total frequence of a token in the corpus
     F = np.sum(corpus_grams, axis=1)  # Sum by row (token)
     # t: the length of the part
-    t = np.sum(corpus_grams, axis=0)  # Sum by column (piece or part)
+    t = np.sum(corpus_grams, axis=0)  # Sum by column (doc or part)
     # T : the total length of the corpus
     T = sum(t)
 
@@ -151,7 +151,7 @@ def build_specificity(ngrams, u: float = 0.5):
 
     corpus_grams = corpus_grams.set_index("token")
     corpus_grams["F"] = F
-    corpus_grams = corpus_grams.reset_index().set_index("piece")
+    corpus_grams = corpus_grams.reset_index().set_index("doc")
     corpus_grams["t"] = t
     corpus_grams["T"] = T
     corpus_grams = corpus_grams.astype(
@@ -189,4 +189,15 @@ def build_specificity(ngrams, u: float = 0.5):
         np.log10(1 - corpus_grams.loc[mask, "probas"])
     )
 
-    return corpus_grams
+    # Format data to return
+    spec = corpus_grams.pivot_table(
+        columns="doc", index="token", values="spec"
+    ).fillna(0)
+    spec = spec.join(
+        pd.DataFrame(corpus_grams["f"] / corpus_grams["t"]).rename(
+            {0: "ref_f"}, axis=1
+        )
+    )
+    spec = spec.join(corpus_grams[["f", "t", "doc"]])
+
+    return spec

@@ -19,7 +19,7 @@ def transform_token_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
     assert len(data) - len(df_ngrams) == n - 1
 
     df_ngrams["text"] = data["text"].values[: -(n - 1)]
-    df_ngrams["piece"] = data["piece"].values[: -(n - 1)]
+    df_ngrams["doc"] = data["doc"].values[: -(n - 1)]
 
     # To this in unit tests
     # simple test: first token in n_gram is token

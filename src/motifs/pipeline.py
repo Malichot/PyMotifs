@@ -163,7 +163,7 @@ class Pipeline:
             from sklearn.preprocessing import StandardScaler
 
             temp = self.features_data.pivot_table(
-                index="token", columns=["piece"], values=feature["name"]
+                index="token", columns=["doc"], values=feature["name"]
             )
             pieces = temp.columns
 

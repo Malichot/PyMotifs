@@ -229,9 +229,9 @@ class Tokenizer:
             data = self.transform_text(
                 self.load_txt(self.corpus_path[file]), **kwargs
             )
-            # Add piece columns
+            # Add doc columns
             filename = file.split(".txt")[0]
-            data["piece"] = filename
+            data["doc"] = filename
             if save:
                 assert self.output_dir is not None
                 data.to_csv(f"{self.output_dir}/{filename}.csv", index=False)

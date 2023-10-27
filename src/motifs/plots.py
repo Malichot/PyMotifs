@@ -27,20 +27,20 @@ def plot_tf_idf(
         raise NotImplementedError
 
     temp = tf_idf.copy()
-    temp = temp.groupby("piece").head(n_motifs)
+    temp = temp.groupby("doc").head(n_motifs)
     temp.sort_values(by="tfidf", ascending=False, inplace=True)
 
     if plot_type == "sep":
         g = sns.FacetGrid(
             temp,
-            col="piece",
+            col="doc",
             sharey=False,
             col_wrap=col_wrap,
         )
         g.map(sns.barplot, "tfidf", "token")
         g.set_titles("{col_name}")
     elif plot_type == "group":
-        sns.barplot(temp, y="token", x="tfidf", hue="piece")
+        sns.barplot(temp, y="token", x="tfidf", hue="doc")
     g.set(xlabel=None, ylabel=None)
     plt.show()
     # plt.close()
