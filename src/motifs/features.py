@@ -1,5 +1,8 @@
+from typing import Tuple
+
 import numpy as np
 import pandas as pd
+from scipy.sparse import csr_array
 from scipy.stats import hypergeom
 
 from motifs.config import LOGGER
@@ -201,3 +204,42 @@ def build_specificity(ngrams, u: float = 0.5):
     spec = spec.join(corpus_grams[["f", "t", "doc"]])
 
     return spec
+
+
+def build_cooccurrence_matrix(
+    data: pd.DataFrame, by: str = "window"
+) -> Tuple[csr_array, list[str], list[any], list[int], list[int]]:
+    """
+    Compute the cooccurrence matrix of the tokens within each `by` value.
+    The input DataFrame must have a columns "token" (the variable of
+    interest) and a column named by the `by` parameter which defines the id of
+    each part within a text.
+    For example, we wish to compute the cooccurrence of the words at the
+    sentence level within a text. The `by` will be the sentence id (
+    "sent_id") and the tokens will correspond to each word in each sentence.
+
+    :param data: DataFrame with columns ["token", by]
+    :param by: Name of the variable defining the window on which the
+    cooccurrence is computed
+    :return:
+    """
+    if not set(["token", by]).issubset(data.columns):
+        LOGGER.error(
+            "Missing columns in data DataFrame with columns: "
+            f"{data.columns}"
+        )
+        raise ValueError
+    data = data.loc[:, ["token", by]]
+    data["count"] = 1
+
+    rows, row_pos = np.unique(data.values[:, 1], return_inverse=True)
+    cols, col_pos = np.unique(data.values[:, 0], return_inverse=True)
+
+    occu = csr_array(
+        (np.ones(len(data.values), dtype=int), (row_pos, col_pos)),
+        shape=(len(rows), len(cols)),
+    )
+
+    cooc = occu.T.dot(occu)
+
+    return cooc, rows, cols, row_pos, col_pos

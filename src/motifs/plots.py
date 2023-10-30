@@ -10,7 +10,7 @@ from sklearn.decomposition import PCA
 
 from motifs.config import LOGGER
 
-TF_IDF_PLOT_TYPES = ["group", "sep"]
+PLOT_TYPES = ["group", "sep"]
 
 
 def plot_tf_idf(
@@ -19,10 +19,10 @@ def plot_tf_idf(
     plot_type: str = "sep",
     col_wrap: int = 3,
 ):
-    if plot_type not in TF_IDF_PLOT_TYPES:
+    if plot_type not in PLOT_TYPES:
         LOGGER.error(
             f"{plot_type} is not implemented. For now you can use "
-            f"only {TF_IDF_PLOT_TYPES}"
+            f"only {PLOT_TYPES}"
         )
         raise NotImplementedError
 
@@ -217,3 +217,37 @@ def pca_variable_plot_old(pca: PCA):
     ax.axvline(x=0, color="k")
     plt.show()
     # plt.close()
+
+
+def plot_cooccurrence_in_corpus(
+    data: pd.DataFrame,
+    plot_type: str = "sep",
+    col_wrap: int = 2,
+    heigth: int = 4,
+    y="token",
+    x="count",
+):
+    if plot_type not in PLOT_TYPES:
+        LOGGER.error(
+            f"{plot_type} is not implemented. For now you can use "
+            f"only {PLOT_TYPES}"
+        )
+        raise NotImplementedError
+
+    if plot_type == "sep":
+        g = sns.FacetGrid(
+            data,
+            col="doc",
+            sharey=False,
+            col_wrap=col_wrap,
+            height=heigth,
+            aspect=5 / heigth,
+        )
+        g.map(sns.barplot, x, y)
+        g.set_titles("{col_name}")
+    elif plot_type == "group":
+        plt.figure(figsize=(5, len(data) / 5))
+        g = sns.barplot(data, x="count", y="token", hue="doc")
+    g.set(xlabel=None, ylabel=None)
+
+    plt.show()
