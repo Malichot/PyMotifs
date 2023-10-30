@@ -18,6 +18,7 @@ from motifs.plots import (
     plot_tf_idf,
 )
 from motifs.tokenizer import Tokenizer
+from motifs.utils import load_tokens_from_directory
 
 """
 feature = [{
@@ -46,14 +47,6 @@ def verify_feature(features: list[dict]):
                 f" {AVAILABLE_FEATURES}"
             )
             raise NotImplementedError
-
-
-def load_tokens_from_directory(dir_):
-    files = [f for f in os.listdir(dir_) if f.endswith(".csv")]
-    tokens = pd.concat(
-        [pd.read_csv(f"{dir_}/{f}") for f in files], ignore_index=True
-    )
-    return tokens
 
 
 class Pipeline:
