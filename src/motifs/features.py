@@ -1,3 +1,4 @@
+import math
 from typing import Tuple
 
 import numpy as np
@@ -218,6 +219,15 @@ def build_cooccurrence_matrix(
     sentence level within a text. The `by` will be the sentence id (
     "sent_id") and the tokens will correspond to each word in each sentence.
 
+    The cooccurrence of two tokens, A and B, in a text within a context (for
+    example a sentence) is defined as the number of pairs (A,B) that exists
+    in a sentence within the text. A way to compute it, is to first
+    calculate the number of pairs within each sentence of the text and sum
+    them.
+    To calculate, the number of pairs (A,B) within a sentence, we compute
+    the frequences of A and B in the sentence, to obtain $f_A$, $f_B$. The
+    number of pairs is then simply $f_A\times f_B$.
+
     :param data: DataFrame with columns ["token", by]
     :param by: Name of the variable defining the window on which the
     cooccurrence is computed
@@ -230,16 +240,20 @@ def build_cooccurrence_matrix(
         )
         raise ValueError
     data = data.loc[:, ["token", by]]
-    data["count"] = 1
+    data = data.groupby(by)["token"].value_counts().reset_index()
 
-    rows, row_pos = np.unique(data.values[:, 1], return_inverse=True)
-    cols, col_pos = np.unique(data.values[:, 0], return_inverse=True)
-
+    rows, row_pos = np.unique(data["window"], return_inverse=True)
+    cols, col_pos = np.unique(data["token"], return_inverse=True)
     occu = csr_array(
-        (np.ones(len(data.values), dtype=int), (row_pos, col_pos)),
+        (data["count"], (row_pos, col_pos)),
         shape=(len(rows), len(cols)),
     )
-
     cooc = occu.T.dot(occu)
+
+    # Diagonal: cooccurrence of a token with itself, number of pair in a set
+    # of f_i elements where f_i is the frequence of the token i within each
+    # sentence.
+    data["diag"] = data["count"].apply(lambda x: math.comb(x, 2))
+    cooc.setdiag(data.groupby("token")["diag"].sum().loc[cols], k=0)
 
     return cooc, rows, cols, row_pos, col_pos
