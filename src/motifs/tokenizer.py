@@ -14,6 +14,23 @@ from motifs.constants import AVAILABLE_TOKEN_TYPES
 BASE_MOTIFS = json.load(open(f"{PKG_DATA_PATH}/fr_motifs.json", "r"))
 
 
+def load_txt(path) -> str:
+    """
+    :param path: file path
+    :return: content of file
+    """
+    try:
+        with open(path, mode="r") as f:
+            content = f.read()
+            if len(content) > 0:
+                return content
+            else:
+                LOGGER.warning(f"{path} seems to be empty! Ignoring it")
+    except Exception as exc:
+        LOGGER.exception(f"Error while loading {path}...")
+        raise exc
+
+
 def verify_token_type(token_type: str):
     isinstance(token_type, str)
     if token_type not in AVAILABLE_TOKEN_TYPES:
@@ -101,23 +118,6 @@ class Tokenizer:
     def preprocessing(text: str) -> str:
         return text.replace("’", "'").replace("'", "'")
 
-    @staticmethod
-    def load_txt(path) -> str:
-        """
-        :param path: file path
-        :return: content of file
-        """
-        try:
-            with open(path, mode="r") as f:
-                content = f.read()
-                if len(content) > 0:
-                    return content
-                else:
-                    LOGGER.warning(f"{path} seems to be empty! Ignoring it")
-        except Exception as exc:
-            LOGGER.exception(f"Error while loading {path}...")
-            raise exc
-
     def transform_text(self, text: str, validate: bool = False):
         """
 
@@ -144,6 +144,7 @@ class Tokenizer:
                         token.dep_,
                         token.n_lefts,
                         token.n_rights,
+                        token.is_sent_start,
                         token.lemma_,
                     )
                     for token in self.nlp(text)
@@ -156,6 +157,7 @@ class Tokenizer:
                     "dep",
                     "n_lefts",
                     "n_rights",
+                    "is_sent_start",
                     "motif",
                 ],
             )
@@ -204,6 +206,7 @@ class Tokenizer:
                         token.dep_,
                         token.n_lefts,
                         token.n_rights,
+                        token.is_sent_start,
                     )
                     for token in self.nlp(text)
                 ),
@@ -215,8 +218,11 @@ class Tokenizer:
                     "dep",
                     "n_lefts",
                     "n_rights",
+                    "is_sent_start",
                 ],
             )
+
+        data["sent_id"] = data["is_sent_start"].cumsum() - 1
 
         return data
 
@@ -227,7 +233,7 @@ class Tokenizer:
                 f" {file}..."
             )
             data = self.transform_text(
-                self.load_txt(self.corpus_path[file]), **kwargs
+                load_txt(self.corpus_path[file]), **kwargs
             )
             # Add doc columns
             filename = file.split(".txt")[0]
