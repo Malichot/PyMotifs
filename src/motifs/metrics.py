@@ -7,9 +7,9 @@ from motifs.features import build_cooccurrence_matrix
 
 
 def find_top_n_cooccurrence(data: pd.DataFrame, n, by: str = "window"):
-    temp, rows, cols, row_pos, col_pos = build_cooccurrence_matrix(data, by=by)
+    temp, _, cols, _, _ = build_cooccurrence_matrix(data, by=by)
     # Extract upper triangular matrix
-    temp = triu(temp, k=1)
+    temp = triu(temp, k=0)
     r, c, v = find(temp)
     non_zeros = np.array([cols[r], cols[c], v])
 
@@ -34,3 +34,16 @@ def corpus_top_n_cooccurence(data: pd.DataFrame, n, by: str = "window"):
         cooc = pd.concat([cooc, temp], ignore_index=True)
 
     return cooc
+
+
+def find_cooccurrent_tokens(
+    token: str, data: pd.DataFrame, n, by: str = "window"
+):
+    cooc, _, cols, _, _ = build_cooccurrence_matrix(data, by=by)
+    token_id_mapper = {c: i for i, c in enumerate(cols)}
+
+    _, c, v = find(cooc.getrow(token_id_mapper[token]))
+
+    non_zeros = np.array([cols[c], v])
+
+    return np.sort(non_zeros, axis=-1)[:, -n:]
