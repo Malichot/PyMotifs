@@ -173,14 +173,30 @@ def build_specificity(ngrams, u: float = 0.5):
     spec_neg = corpus_grams["f"] < corpus_grams["mod"]
     spec_pos = corpus_grams["f"] >= corpus_grams["mod"]
 
+    # Cache to efficiently compute hypergeom cdf for every row
+    cdf = {}
+
+    def hypergeom_cdf(f, t, T, F):
+        key = (f, t, T, F)
+        if key not in cdf:
+            val = hypergeom.cdf(k=f, M=T, n=F, N=t)
+            cdf[key] = val
+        else:
+            val = cdf[key]
+        return val
+
     # Positive spec
     corpus_grams.loc[spec_pos, "probas"] = corpus_grams.loc[spec_pos].apply(
-        lambda row: hypergeom.cdf(row["f"] - 1, row["T"], row["F"], row["t"]),
+        lambda row: hypergeom_cdf(
+            f=row["f"] - 1, t=row["t"], T=row["T"], F=row["F"]
+        ),
         axis=1,
     )
     # Negative spec
     corpus_grams.loc[spec_neg, "probas"] = corpus_grams.loc[spec_neg].apply(
-        lambda row: hypergeom.cdf(row["f"], row["T"], row["F"], row["t"]),
+        lambda row: hypergeom_cdf(
+            f=row["f"], t=row["t"], T=row["T"], F=row["F"]
+        ),
         axis=1,
     )
 
@@ -199,7 +215,7 @@ def build_specificity(ngrams, u: float = 0.5):
     ).fillna(0)
     spec = spec.join(
         pd.DataFrame(corpus_grams["f"] / corpus_grams["t"]).rename(
-            {0: "ref_f"}, axis=1
+            {0: "rel_f"}, axis=1
         )
     )
     spec = spec.join(corpus_grams[["f", "t", "doc"]])
