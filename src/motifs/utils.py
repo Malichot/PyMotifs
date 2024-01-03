@@ -37,48 +37,31 @@ def build_window_data(ngrams: pd.DataFrame, seq_length: int):
 
 
 def return_to_text_from_token(
-    data: pd.DataFrame, token: str, n: int, context_len: int
+    ngrams: pd.DataFrame, token: str, n: int, context_len: int
 ) -> pd.DataFrame:
     """
     From a token, such as a motif, returns the left, right context and
     text corresponding to the input token within the original text.
 
-    :param data: a DataFrame with columns ["token", "text"]
+    :param ngrams: a DataFrame containing the original text and
+    corresponding tokens in n-grams with columns ["token", "text", "doc"]
     :param token: a string representing the token
     :param n: the n-gram length
     :param context_len: the context length (left and right)
     :return: a DataFrame with columns ["left_context", "righ_context",
     "doc"] and, as index, the different texts corresponding to the token
     """
-    ids = data.index[data["token"] == token]
-    text = data["text"].str.split(" ")
-
     l_context = []
     r_context = []
     token_text = []
+
+    ids = ngrams.index[ngrams["token"] == token]
     for id_ in ids:
-        token_text.append(data["text"].loc[id_])
-        d = context_len % n
-        r = context_len - n * d
-
-        if r > 0:
-            l_c = text.loc[id_ - (d + 1) * n][-r:]
-        else:
-            l_c = []
-        for i in range(d, 0, -1):
-            l_c += text.loc[id_ - i * n]
-
-        r_c = []
-        for i in range(1, d + 1):
-            r_c += text.loc[id_ + i * n]
-        if r > 0:
-            r_c += text.loc[id_ + (d + 1) * n][:r]
-
-        l_c = " ".join(l_c)
-        r_c = " ".join(r_c)
-
-        assert len(l_c.split(" ")) == context_len
-        assert len(r_c.split(" ")) == context_len
+        token_text.append(ngrams["text"].loc[id_])
+        l_c = ngrams["word"].loc[id_ - context_len : id_ - 1]
+        l_c = " ".join(l_c.tolist())
+        r_c = ngrams["word"].loc[id_ + n : id_ + n + context_len - 1]
+        r_c = " ".join(r_c.tolist())
 
         l_context.append(l_c)
         r_context.append(r_c)
@@ -87,6 +70,6 @@ def return_to_text_from_token(
         l_context, columns=["left_context"], index=token_text
     )
     context["right_context"] = r_context
-    context["doc"] = data.loc[ids, "doc"].values
+    context["doc"] = ngrams.loc[ids, "doc"].values
 
     return context
