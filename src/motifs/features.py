@@ -215,12 +215,9 @@ def build_specificity(ngrams, u: float = 0.5):
     spec = corpus_grams.pivot_table(
         columns="doc", index="token", values="spec"
     ).fillna(0)
-    spec = spec.join(
-        pd.DataFrame(corpus_grams["f"] / corpus_grams["t"]).rename(
-            {0: "rel_f"}, axis=1
-        )
-    )
-    spec = spec.join(corpus_grams[["f", "t", "doc"]])
+    spec = spec.join(corpus_grams, how="left")
+    spec["rel_f"] = spec["f"] / spec["t"]
+    spec.drop(["F", "T", "mod", "probas"], axis=1, inplace=True)
 
     return spec
 

@@ -87,7 +87,7 @@ def find_cooccurrent_tokens(
     return pd.DataFrame(non_zeros[:, -n:], index=["token", "count"]).T
 
 
-def corpus_coocurrent_tokens(
+def corpus_cooccurrent_tokens(
     token: str, data: pd.DataFrame, n: int, by: str = "window"
 ) -> pd.DataFrame:
     """
