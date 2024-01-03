@@ -36,6 +36,60 @@ def build_window_data(ngrams: pd.DataFrame, seq_length: int):
     return window
 
 
+def return_to_text_from_token_better_try(
+    ngrams: pd.DataFrame, token: str, n: int, context_len: int
+) -> pd.DataFrame:
+    ngrams = ngrams.reset_index()
+    words = ngrams["word"].values
+    ids = ngrams.index[ngrams["token"] == token]
+
+    start_of_text = [id_ for id_ in ids if id_ - context_len < 0]
+    end_of_text = [id_ for id_ in ids if id_ + n + context_len >= len(words)]
+    ids = list(set(ids) - set(start_of_text) - set(end_of_text))
+
+    l_c = words[[range(id_ - context_len, id_) for id_ in ids]]
+    l_c = np.apply_along_axis(lambda x: " ".join(x), 1, l_c)
+    r_c = words[[range(id_ + n, id_ + n + context_len) for id_ in ids]]
+    r_c = np.apply_along_axis(lambda x: " ".join(x), 1, r_c)
+
+    context = pd.DataFrame(
+        [l_c, ngrams["text"].values[ids], r_c], columns=ids
+    ).T
+    no_left_c = []
+    for id_ in start_of_text:
+        no_left_c.append(
+            [
+                " ".join(words[0:id_]),
+                ngrams["text"].values[id_],
+                " ".join(words[range(id_ + n, id_ + n + context_len)]),
+            ]
+        )
+    if len(no_left_c):
+        context = pd.concat(
+            [context, pd.DataFrame(no_left_c, index=start_of_text)],
+            ignore_index=True,
+        )
+
+    no_right_c = []
+    for id_ in end_of_text:
+        no_right_c.append(
+            [
+                " ".join(words[range(id_ - context_len, id_)]),
+                ngrams["text"].values[id_],
+                None,
+            ]
+        )
+    if len(no_right_c):
+        context = pd.concat(
+            [context, pd.DataFrame(no_right_c, index=end_of_text)],
+            ignore_index=True,
+        )
+    context["token"] = token
+    context["doc"] = ngrams.loc[context.index, "doc"].values
+
+    return context
+
+
 def return_to_text_from_token(
     ngrams: pd.DataFrame, token: str, n: int, context_len: int
 ) -> pd.DataFrame:
@@ -66,10 +120,55 @@ def return_to_text_from_token(
         l_context.append(l_c)
         r_context.append(r_c)
 
-    context = pd.DataFrame(
-        l_context, columns=["left_context"], index=token_text
-    )
+    context = pd.DataFrame(l_context, columns=["left_context"])
+    context["text"] = token_text
     context["right_context"] = r_context
     context["doc"] = ngrams.loc[ids, "doc"].values
+    context["token"] = token
 
     return context
+
+
+def return_to_text_from_spec(
+    ngrams: pd.DataFrame,
+    spec: str,
+    n: int,
+    context_len: int,
+    min_spec: int,
+    min_freq: int = 2,
+) -> pd.DataFrame:
+    """
+
+    :param ngrams: a DataFrame containing the original text and
+    corresponding tokens in n-grams with columns ["token", "text", "doc"]
+    :param spec:
+    :param n: the n-gram length
+    :param context_len: the context length (left and right)
+    :param min_spec:
+    :param min_freq:
+
+    :return: a DataFrame with columns ["left_context", "righ_context",
+    "doc"] and, as index, the different texts corresponding to the token
+    """
+
+    output = pd.DataFrame()
+    for doc in list(spec.columns):
+        s = spec.loc[spec["doc"] == doc, :]
+        tokens = s.loc[(s[doc] >= min_spec) & (s["f"] >= min_freq), doc].index
+        if len(tokens):
+            temp = pd.concat(
+                [
+                    return_to_text_from_token(
+                        ngrams[ngrams["doc"] == doc], token, n, context_len
+                    )
+                    for token in tokens
+                ],
+                ignore_index=True,
+            )
+            output = pd.concat([output, temp], ignore_index=True)
+    output = (
+        output.set_index("token")
+        .join(spec[["spec", "f", "t"]])
+        .sort_values(by=["spec", "doc"], ascending=False)
+    )
+    return output
