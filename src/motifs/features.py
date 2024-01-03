@@ -25,17 +25,19 @@ def transform_corpus_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
     :param n: n-gram length
     :return:
     """
-    data = pd.concat(
-        [
-            transform_token_to_ngrams(data[data["doc"] == f], n)
-            for f in data.doc.unique()
-        ],
-        ignore_index=True,
-    )
-    data = data.drop("text", axis=1).rename(
+
+    ngrams = pd.DataFrame()
+    for f in data.doc.unique():
+        temp = transform_token_to_ngrams(data[data["doc"] == f], n)
+        # Add first word of each n-gram
+        temp["word"] = data.loc[data["doc"] == f, "text"].values[: -n + 1]
+        ngrams = pd.concat([ngrams, temp], ignore_index=True)
+
+    ngrams = ngrams.drop("text", axis=1).rename(
         {"ngram_text": "text", "ngram_token": "token"}, axis=1
     )
-    return data
+
+    return ngrams[["word", "text", "token", "doc"]]
 
 
 def transform_token_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
