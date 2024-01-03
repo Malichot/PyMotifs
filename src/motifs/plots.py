@@ -219,7 +219,7 @@ def pca_variable_plot_old(pca: PCA):
     # plt.close()
 
 
-def plot_cooccurrence_in_corpus(
+def facet_bar_plot(
     data: pd.DataFrame,
     plot_type: str = "sep",
     col_wrap: int = 2,
