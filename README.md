@@ -6,7 +6,7 @@
 
 ### Create a virtual environment
 
-With conda: `conda create -n pymotifs python=3.10`
+With conda: `conda create -n pymotifs python=3.12`
 
 ### To use the last stable version of the package
 

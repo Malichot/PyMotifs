@@ -17,7 +17,7 @@ classifiers = [
 	"Licence :: OSI Approved :: MIT License",
 	"Operating System :: OS Independent",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
 	"coloredlogs >= 15.0.1",
     "pandas >= 2.1.1",
@@ -36,7 +36,7 @@ dev = ["black", "isort", "pytest", "pre-commit"]
 
 [tool.black]
 line-length = 79
-target-version = ['py310']
+target-version = ['py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
