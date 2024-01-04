@@ -17,13 +17,15 @@ classifiers = [
 	"Licence :: OSI Approved :: MIT License",
 	"Operating System :: OS Independent",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
 	"coloredlogs >= 15.0.1",
     "pandas >= 2.1.1",
 	"spacy-udpipe >= 1.0.0",
 	"seaborn>=0.13.0",
 	"statsmodels>=0.14.0",
+	"scikit-learn>=1.3.2",
+	"notebook>=7.0.6"
 ]
 
 [project.urls]
@@ -31,12 +33,18 @@ Homepage = "https://gitlab.huma-num.fr/adesacy/PyMotifs"
 
 [project.scripts]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+motifs = ["data/**"]
+
 [project.optional-dependencies]
 dev = ["black", "isort", "pytest", "pre-commit"]
 
 [tool.black]
 line-length = 79
-target-version = ['py312']
+target-version = ['py311']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
