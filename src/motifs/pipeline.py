@@ -136,7 +136,7 @@ class Pipeline:
 
         for feature in self.features:
             if feature["name"] == "tfidf":
-                self.__features_data = build_tfidf(self.__ngrams)
+                self.__features_data, _ = build_tfidf(self.__ngrams)
                 if plot:
                     plot_tf_idf(self.__features_data, **kwargs)
             elif feature["name"] == "freq":
