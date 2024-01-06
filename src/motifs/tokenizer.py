@@ -1,6 +1,8 @@
 import json
 import os
-from typing import Any, Optional
+import re
+import unicodedata
+from typing import Any, Dict, Iterator, Optional
 
 import pandas as pd
 import spacy_udpipe
@@ -39,6 +41,19 @@ def verify_token_type(token_type: str):
             f" {AVAILABLE_TOKEN_TYPES}"
         )
         raise NotImplementedError
+
+
+def preprocess_generator(text: Iterator[str], patterns: Dict) -> Iterator[str]:
+    # Combine patterns into a single regular expression pattern
+    combined_pattern = re.compile("|".join(map(re.escape, patterns.keys())))
+
+    for string in text:
+        # Handle unicode errors
+        string = unicodedata.normalize("NFKD", string)
+        string = combined_pattern.sub(
+            lambda match: patterns[match.group(0)], string
+        )
+        yield string.strip()
 
 
 class Tokenizer:
@@ -110,13 +125,29 @@ class Tokenizer:
         }
         self.motifs = motifs
 
-        if not UDPIPE_LANGUAGES[lang] in os.listdir(UDPIPE_MODELS_DIR):
+        if os.path.isdir(UDPIPE_MODELS_DIR):
+            if not UDPIPE_LANGUAGES[lang] in os.listdir(UDPIPE_MODELS_DIR):
+                spacy_udpipe.download(lang)
+        else:
             spacy_udpipe.download(lang)
         self.nlp = spacy_udpipe.load(lang)
 
     @staticmethod
     def preprocessing(text: str) -> str:
-        return text.replace("’", "'").replace("'", "'")
+        patterns = json.load(
+            open(f"{PKG_DATA_PATH}/patterns_to_replace.json", "r")
+        )
+        # Handle unicode errors
+        text = unicodedata.normalize("NFKD", text)
+        # Combine patterns into a single regular expression pattern
+        combined_pattern = re.compile(
+            "|".join(map(re.escape, patterns.keys()))
+        )
+        # Replace
+        text = combined_pattern.sub(
+            lambda match: patterns[match.group(0)], text
+        )
+        return text.strip()
 
     def transform_text(self, text: str, validate: bool = False):
         """
