@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 import unicodedata
 from typing import Any, Dict, Iterator, Optional
 
@@ -263,9 +264,12 @@ class Tokenizer:
                 f"Steps to go {len(self.corpus_path) - i}: tokenizing"
                 f" {file}..."
             )
+            t1 = time.time()
             data = self.transform_text(
                 load_txt(self.corpus_path[file]), **kwargs
             )
+            t2 = time.time()
+            LOGGER.info(f"Transformed {file} in {round(t2 - t1, 2)} seconds.")
             # Add doc columns
             filename = file.split(".txt")[0]
             data["doc"] = filename
