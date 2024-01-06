@@ -1,5 +1,5 @@
 import math
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -60,12 +60,29 @@ def transform_token_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
     return df_ngrams
 
 
-def build_tfidf(data: pd.DataFrame, log: bool = True) -> pd.DataFrame:
+def build_tfidf(
+    data: pd.DataFrame, idf: Optional[pd.Series] = None
+) -> Tuple[pd.DataFrame, pd.Series]:
+    """
+    Compute TFIDF features on the provided corpus.
+
+    :param data: A DataFrame containing the corpus with columns
+    ["token", "doc"]
+    :param idf: Optional. If provided the IDF will be used to normalize the
+    TF, typically used for normalizing a test sample after having computed
+    the IDF on a train sample.
+    :return: A DataFrame with columns ["token", "doc", "tfidf"] and the IDF
+    (which can be used in a latter phase to normalize a test sample).
+    """
     if not set(["token", "doc"]).issubset(set(data.columns)):
         LOGGER.error(
             "Wrong columns names: ['token', 'doc'] are not in the data"
         )
         raise AssertionError
+
+    if idf is not None:
+        # Remove tokens that do not have an idf
+        data = data[data["token"].isin(idf.index)]
 
     doc_names = list(set(data["doc"]))
     # frequency of each motif per document
@@ -76,15 +93,18 @@ def build_tfidf(data: pd.DataFrame, log: bool = True) -> pd.DataFrame:
         .astype(int)
     )
 
+    if idf is not None:
+        # Add missing tokens and fill with 0.
+        counts = counts.reindex(idf.index).fillna(0.0)
+
     # Count total number of motif per document
     n_tokens_per_doc = np.sum(counts, axis=0)
-    # Term freq: motifs freq per doc / total number of motifs per doc
+    # Term freq: motifs count per doc / total number of motifs per doc
     tf = counts / n_tokens_per_doc
-    # Document freq: Count appearance of each motif over the document
-    df = np.sum(counts != 0, axis=1)
-    idf = len(doc_names) / df
-    if log:
-        idf = np.log(idf)
+    if idf is None:
+        # Document freq: Count appearance of each motif over the document
+        df = np.sum(counts != 0, axis=1)
+        idf = np.log(len(doc_names) / df)
 
     tfidf = tf * idf.loc[tf.index].values.reshape(-1, 1)
     # Reorganise
@@ -93,7 +113,10 @@ def build_tfidf(data: pd.DataFrame, log: bool = True) -> pd.DataFrame:
     ).reset_index()
     tfidf.columns = ["token", "doc", "tfidf"]
 
-    return tfidf
+    if idf is not None:
+        assert set(tfidf.token) == set(idf.index)
+
+    return tfidf, idf
 
 
 def build_token_freq(data, freq_filter=2, n_motifs=None) -> pd.DataFrame():
