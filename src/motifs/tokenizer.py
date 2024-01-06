@@ -268,15 +268,14 @@ class Tokenizer:
             data = self.transform_text(
                 load_txt(self.corpus_path[file]), **kwargs
             )
-            t2 = time.time()
-            LOGGER.info(f"Transformed {file} in {round(t2 - t1, 2)} seconds.")
             # Add doc columns
             filename = file.split(".txt")[0]
             data["doc"] = filename
             if save:
                 assert self.output_dir is not None
                 data.to_csv(f"{self.output_dir}/{filename}.csv", index=False)
-            LOGGER.debug(f"Done with {file}.")
+            t2 = time.time()
+            LOGGER.debug(f"Done with {file} in {round(t2 - t1, 2)} seconds.")
             yield data
 
     def transform(self, save: bool = False, **kwargs):
