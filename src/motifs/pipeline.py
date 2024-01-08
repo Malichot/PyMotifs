@@ -2,7 +2,7 @@ import datetime as dt
 import os
 from typing import Optional
 
-import pandas as pd
+import seaborn as sns
 
 from motifs.config import LOGGER
 from motifs.constants import AVAILABLE_FEATURES, AVAILABLE_METHODS
@@ -11,12 +11,8 @@ from motifs.features import (
     build_token_freq,
     transform_corpus_to_ngrams,
 )
-from motifs.plots import (
-    pca_variable_plot,
-    plot_explained_variance_ratio,
-    plot_pca_projection,
-    plot_tf_idf,
-)
+from motifs.pca import pca_transform
+from motifs.plots import plot_motif_histogram, plot_tf_idf
 from motifs.tokenizer import Tokenizer
 from motifs.utils import load_tokens_from_directory
 
@@ -28,25 +24,16 @@ feature = [{
 """
 
 
-def verify_feature(features: list[dict]):
-    assert isinstance(features, list)
+def verify_feature(feature: dict):
+    assert isinstance(feature, dict)
+    assert feature.get("name") is not None
 
-    if len(features) > 1:
+    if feature["name"] not in AVAILABLE_FEATURES:
         LOGGER.error(
-            "You passed more than one feature. This is not " "implemented."
+            f"The feature {feature['name']} is not implemented! Available "
+            f"features are {AVAILABLE_FEATURES}"
         )
         raise NotImplementedError
-
-    assert all([isinstance(f, dict) for f in features])
-    assert all([f.get("name") is not None for f in features])
-
-    for f in features:
-        if f["name"] not in AVAILABLE_FEATURES:
-            LOGGER.error(
-                f"This feature is not implemented! Available features are"
-                f" {AVAILABLE_FEATURES}"
-            )
-            raise NotImplementedError
 
 
 class Pipeline:
@@ -54,8 +41,7 @@ class Pipeline:
 
     :param token_type: type of the token to use for the analysis. Should be
     one of ["text", "lemma", "pos", "motif"]
-    :param features: list of features configuration. For now only a list of
-    a single feature is implemented.
+    :param feature: Feature's configuration.
     :param tokens_dir: The folder where the tokens for each text is located.
     The tokens should be stored in a csv file obtained from `transform_corpus`
     of `motifs.tokenizer.Tokenizer`. This is used by default.
@@ -68,15 +54,17 @@ class Pipeline:
     def __init__(
         self,
         token_type: str,
-        features: list[dict],
+        feature: dict,
+        n: int,
         tokens_dir: Optional[str] = None,
         corpus_dir: Optional[str] = None,
         save: bool = True,
         **kwargs,
     ):
         self.token_type = token_type
-        verify_feature(features)
-        self.features = features
+        verify_feature(feature)
+        self.feature = feature
+        self.n = n
         if save:
             self.output_dir = (
                 f"{os.getcwd()}/"
@@ -118,7 +106,45 @@ class Pipeline:
         self.__ngrams = None
         self.__transformer = None
 
-    def execute(self, method: str, n: int, plot: bool = False, **kwargs):
+    def transform_to_ngrams(self):
+        self.__ngrams = transform_corpus_to_ngrams(self.tokens, self.n)
+        # Remove empty cells (just in case)
+        empty_cells = self.__ngrams.apply(lambda x: x.apply(len)) != 0
+        self.__ngrams = self.__ngrams[empty_cells.all(axis=1)]
+
+    def get_features(self):
+        """
+
+        :param method:
+        :param n: n-gram length
+        :param plot:
+        :param kwargs:
+        :return:
+        """
+        if self.__ngrams is None:
+            LOGGER.error(
+                "You must first call `transform_to_ngrams` to get ngrams!"
+            )
+            raise AssertionError
+        # Remove empty cells (just in case)
+        empty_cells = self.__ngrams.apply(lambda x: x.apply(len)) != 0
+        self.__ngrams = self.__ngrams[empty_cells.all(axis=1)]
+
+        if self.feature["name"] == "tfidf":
+            features_data, _ = build_tfidf(self.__ngrams)
+        elif self.feature["name"] == "freq":
+            features_data = build_token_freq(
+                self.__ngrams,
+                **self.feature.get(
+                    "params", {"freq_filter": 2, "n_motifs": None}
+                ),
+            )
+        else:
+            raise NotImplementedError
+
+        return features_data
+
+    def execute(self, method: str, plot: bool = False, **kwargs):
         """
 
         :param method:
@@ -128,49 +154,30 @@ class Pipeline:
         :return:
         """
         assert method in AVAILABLE_METHODS
-        self.__ngrams = transform_corpus_to_ngrams(self.tokens, n)
+        self.transform_to_ngrams()
+        if plot:
+            # Plot the count of tokens for each document within the corpus
+            sns.countplot(self.ngrams, x="doc")
+            # Plot distribution of tokens
+            plot_motif_histogram(self.ngrams, **kwargs)
 
-        # Remove empty cells (just in case)
-        empty_cells = self.__ngrams.apply(lambda x: x.apply(len)) != 0
-        self.__ngrams = self.__ngrams[empty_cells.all(axis=1)]
-
-        for feature in self.features:
-            if feature["name"] == "tfidf":
-                self.__features_data, _ = build_tfidf(self.__ngrams)
-                if plot:
-                    plot_tf_idf(self.__features_data, **kwargs)
-            elif feature["name"] == "freq":
-                self.__features_data = build_token_freq(
-                    self.__ngrams,
-                    **feature.get(
-                        "params", {"freq_filter": 2, "n_motifs": None}
-                    ),
+        self.__features_data = self.get_features()
+        if plot:
+            if self.feature["name"] == "tfidf":
+                plot_tf_idf(
+                    self.features_data,
+                    n_tokens=kwargs.get("n_tokens", 20),
+                    plot_type=kwargs.get("plot_type", "sep"),
+                    col_wrap=kwargs.get("col_wrap", 3),
                 )
-            else:
-                raise NotImplementedError
 
         if method == "pca":
-            from sklearn.decomposition import PCA
-            from sklearn.preprocessing import StandardScaler
-
-            temp = self.features_data.pivot_table(
-                index="token", columns=["doc"], values=feature["name"]
+            pca = pca_transform(
+                self.features_data.pivot_table(
+                    index="token", columns=["doc"], values=self.feature["name"]
+                ),
+                plot=plot,
             )
-            pieces = temp.columns
-
-            # Normalize the input data
-            scaler = StandardScaler()
-            temp = scaler.fit_transform(temp)
-            temp = pd.DataFrame(temp, columns=pieces)
-
-            pca = PCA(n_components=temp.shape[-1])
-            pca.fit(temp)
-
-            if plot:
-                plot_explained_variance_ratio(pca)
-                plot_pca_projection(pca, pieces)
-                pca_variable_plot(temp, pca, colwrap=4)
-
             self.__transformer = pca
 
     @property
