@@ -155,7 +155,7 @@ def build_specificity(ngrams, u: float = 0.5):
     /Manuel%20de%20TXM%200.7%20FR.pdf
 
     :param ngrams:
-    :param sort:
+    :param u:
     :return:
     """
     assert 0 <= u <= 1

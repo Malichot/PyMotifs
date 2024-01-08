@@ -33,6 +33,9 @@ def build_window_data(ngrams: pd.DataFrame, seq_length: int):
     window = pd.DataFrame(window, columns=["window", "text", "token"])
     window["window"] = window["window"].astype(int)
 
+    # Remove extra 0s
+    window = window.iloc[: -(len(ngrams) % seq_length), :]
+
     return window
 
 
@@ -166,9 +169,10 @@ def return_to_text_from_spec(
                 ignore_index=True,
             )
             output = pd.concat([output, temp], ignore_index=True)
-    output = (
-        output.set_index("token")
-        .join(spec[["spec", "f", "t"]])
-        .sort_values(by=["spec", "doc"], ascending=False)
-    )
+    if len(output):
+        output = (
+            output.set_index("token")
+            .join(spec[["spec", "f", "t"]])
+            .sort_values(by=["spec", "doc"], ascending=False)
+        )
     return output

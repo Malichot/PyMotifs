@@ -79,12 +79,15 @@ def find_cooccurrent_tokens(
     # Extract upper triangular matrix
     cooc = triu(cooc, k=0)
 
-    r, c, v = find(cooc.getrow(token_id_mapper[token]))
-    # order by cooccurrence
-    order_ = np.argsort(v)
-    # get the tokens
-    non_zeros = np.array([cols[c][order_], v[order_]])
-    return pd.DataFrame(non_zeros[:, -n:], index=["token", "count"]).T
+    if token in token_id_mapper:
+        r, c, v = find(cooc.getrow(token_id_mapper[token]))
+        # order by cooccurrence
+        order_ = np.argsort(v)
+        # get the tokens
+        non_zeros = np.array([cols[c][order_], v[order_]])
+        return pd.DataFrame(non_zeros[:, -n:], index=["token", "count"]).T
+    else:
+        return pd.DataFrame(columns=["token", "count"])
 
 
 def corpus_cooccurrent_tokens(
