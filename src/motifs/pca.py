@@ -48,14 +48,21 @@ def plot_explained_variance_ratio(pca: PCA):
             xytext=(0, 8),
             textcoords="offset points",
         )
+    plt.title("PC explained variance ratio")
     plt.show()
 
 
 def plot_pca_projection(pca, var_names):
     loadings = pd.DataFrame(pca.components_.T, index=var_names)
     sns.heatmap(
-        loadings, cmap="bwr", square=pca.components_.shape[0] == len(var_names)
+        loadings,
+        cmap="bwr",
+        square=pca.components_.shape[0] == len(var_names),
+        vmax=1,
+        vmin=-1,
+        center=0,
     )
+    plt.title("PC loadings")
     plt.show()
 
 
@@ -100,6 +107,8 @@ def pca_variable_plot(data, pca, n_components=None, colwrap=3, max_plots=50):
                 pca_variable_2dplot(
                     data, factors[:, [pair[0], pair[1]]], ax=axs[row, col]
                 )
+                axs[row, col].set_title(f"{pair[1]} vs {pair[0]}")
+
             # Remove extra empty axes
             if (nrow * ncol - len(pairs)) > 0:
                 for i in range(colwrap - (nrow * ncol - len(pairs)), colwrap):
@@ -111,12 +120,14 @@ def pca_variable_plot(data, pca, n_components=None, colwrap=3, max_plots=50):
                 pca_variable_2dplot(
                     data, factors[:, [pair[0], pair[1]]], ax=axs[col]
                 )
+                axs[col].set_title(f"PC{pair[1]} vs PC{pair[0]}")
             ax = axs[0]
 
     for i, name in enumerate(names):
         y = -i / height + 1
         ax.text(-5, y, name, fontsize=12, color=colors[i])
 
+    fig.suptitle("PCA Variable plot")
     plt.show()
 
 

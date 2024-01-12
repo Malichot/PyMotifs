@@ -85,9 +85,11 @@ def find_cooccurrent_tokens(
         order_ = np.argsort(v)
         # get the tokens
         non_zeros = np.array([cols[c][order_], v[order_]])
-        return pd.DataFrame(non_zeros[:, -n:], index=["token", "count"]).T
+        cooc = pd.DataFrame(non_zeros[:, -n:], index=["token", "count"]).T
+        cooc["target"] = token
+        return cooc[["target", "token", "count"]]
     else:
-        return pd.DataFrame(columns=["token", "count"])
+        return pd.DataFrame(columns=["target", "token", "count"])
 
 
 def corpus_cooccurrent_tokens(
