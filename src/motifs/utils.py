@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -12,10 +13,30 @@ def load_tokens_from_directory(dir_):
     return tokens
 
 
-def build_window_corpus(ngrams: pd.DataFrame, seq_length: int):
+def build_window_corpus(
+    ngrams: pd.DataFrame,
+    seq_length: int,
+    overlap: bool = True,
+    n: Optional[int] = None,
+) -> pd.DataFrame:
+    """
+
+    :param ngrams: DataFrame of n-grams with columns ["doc", "text", "token"]
+    :param seq_length: Length of the window
+    :param overlap: If true, it returns all n-grams contained in the
+    window, otherwise it returns non-overlapping n-grams only.
+    context
+    :param n: n-gram length, required if `overlap=False`
+    :return:
+    """
+    if not overlap:
+        assert n is not None, "You must provide n if overlap is True!"
     window_ngram = pd.DataFrame()
     for doc in ngrams.doc.unique():
-        window = build_window_data(ngrams[ngrams["doc"] == doc], seq_length)
+        temp = ngrams[ngrams["doc"] == doc]
+        if not overlap:
+            temp = temp.iloc[list(range(0, len(temp), n))]
+        window = build_window_data(temp, seq_length)
         window["doc"] = doc
         window_ngram = pd.concat([window_ngram, window], ignore_index=True)
 
@@ -34,7 +55,8 @@ def build_window_data(ngrams: pd.DataFrame, seq_length: int):
     window["window"] = window["window"].astype(int)
 
     # Remove extra 0s
-    window = window.iloc[: -(len(ngrams) % seq_length), :]
+    if len(ngrams) % seq_length != 0:
+        window = window.iloc[: -(len(ngrams) % seq_length), :]
 
     return window
 
