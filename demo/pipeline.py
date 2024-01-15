@@ -26,7 +26,7 @@ if __name__ == "__main__":
         default="pca",
     )
     parser.add_argument(
-        "-n", "--ngram", type=int, help="n-gram length", default=4
+        "-n", "--ngram", type=int, help="n-gram length", default=5
     )
     parser.add_argument(
         "-s",
@@ -37,10 +37,10 @@ if __name__ == "__main__":
     parser.add_argument("--no-plot", action="store_false")
     args = parser.parse_args()
 
-    features = [{"name": "tfidf"}]
+    feature = {"name": "tfidf"}
     pipeline = Pipeline(
         "motif",
-        features,
+        feature,
         tokens_dir=args.tokens_dir,
         corpus_dir=args.corpus_dir,
         save=args.save,
