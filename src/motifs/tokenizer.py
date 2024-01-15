@@ -135,19 +135,15 @@ class Tokenizer:
 
     @staticmethod
     def preprocessing(text: str) -> str:
-        patterns = json.load(
+        REGEX = json.load(
             open(f"{PKG_DATA_PATH}/patterns_to_replace.json", "r")
         )
         # Handle unicode errors
         text = unicodedata.normalize("NFKD", text)
-        # Combine patterns into a single regular expression pattern
-        combined_pattern = re.compile(
-            "|".join(map(re.escape, patterns.keys()))
-        )
-        # Replace
-        text = combined_pattern.sub(
-            lambda match: patterns[match.group(0)], text
-        )
+        # Replacements
+        for k in REGEX:
+            text = re.sub(k, REGEX[k], text)
+
         return text.strip()
 
     def transform_text(self, text: str, validate: bool = False):
