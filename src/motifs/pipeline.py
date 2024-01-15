@@ -55,7 +55,6 @@ class Pipeline:
         self,
         token_type: str,
         feature: dict,
-        n: int,
         tokens_dir: Optional[str] = None,
         corpus_dir: Optional[str] = None,
         save: bool = True,
@@ -64,7 +63,6 @@ class Pipeline:
         self.token_type = token_type
         verify_feature(feature)
         self.feature = feature
-        self.n = n
         if save:
             self.output_dir = (
                 f"{os.getcwd()}/"
@@ -106,8 +104,8 @@ class Pipeline:
         self.__ngrams = None
         self.__transformer = None
 
-    def transform_to_ngrams(self):
-        self.__ngrams = transform_corpus_to_ngrams(self.tokens, self.n)
+    def transform_to_ngrams(self, n):
+        self.__ngrams = transform_corpus_to_ngrams(self.tokens, n)
         # Remove empty cells (just in case)
         empty_cells = self.__ngrams.apply(lambda x: x.apply(len)) != 0
         self.__ngrams = self.__ngrams[empty_cells.all(axis=1)]
@@ -116,7 +114,6 @@ class Pipeline:
         """
 
         :param method:
-        :param n: n-gram length
         :param plot:
         :param kwargs:
         :return:
@@ -144,17 +141,17 @@ class Pipeline:
 
         return features_data
 
-    def execute(self, method: str, plot: bool = False, **kwargs):
+    def execute(self, n: int, method: str, plot: bool = False, **kwargs):
         """
 
-        :param method:
         :param n: n-gram length
+        :param method:
         :param plot:
         :param kwargs:
         :return:
         """
         assert method in AVAILABLE_METHODS
-        self.transform_to_ngrams()
+        self.transform_to_ngrams(n)
         if plot:
             # Plot the count of tokens for each document within the corpus
             sns.countplot(self.ngrams, x="doc")
