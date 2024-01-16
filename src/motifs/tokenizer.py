@@ -255,24 +255,40 @@ class Tokenizer:
         return data
 
     def transform_corpus(self, save: bool = False, **kwargs):
+        errors = []
         for i, file in enumerate(self.corpus_path):
             LOGGER.debug(
                 f"Steps to go {len(self.corpus_path) - i}: tokenizing"
                 f" {file}..."
             )
             t1 = time.time()
-            data = self.transform_text(
-                load_txt(self.corpus_path[file]), **kwargs
+            try:
+                data = self.transform_text(
+                    load_txt(self.corpus_path[file]), **kwargs
+                )
+                # Add doc columns
+                filename = file.split(".txt")[0]
+                data["doc"] = filename
+                if save:
+                    assert self.output_dir is not None
+                    data.to_csv(
+                        f"{self.output_dir}/{filename}.csv", index=False
+                    )
+                t2 = time.time()
+                LOGGER.debug(
+                    f"Done with {file} in {round(t2 - t1, 2)} seconds."
+                )
+                yield data
+            except Exception as _exc:
+                LOGGER.exception(f"Exception with file {file}...\n{_exc}")
+                errors.append(file)
+        if len(errors) > 0:
+            LOGGER.warning(
+                "There were errors while annotating the following texts: "
+                f"{errors}"
             )
-            # Add doc columns
-            filename = file.split(".txt")[0]
-            data["doc"] = filename
             if save:
-                assert self.output_dir is not None
-                data.to_csv(f"{self.output_dir}/{filename}.csv", index=False)
-            t2 = time.time()
-            LOGGER.debug(f"Done with {file} in {round(t2 - t1, 2)} seconds.")
-            yield data
+                json.dump(errors, open(f"{self.output_dir}/errors.json", "w"))
 
     def transform(self, save: bool = False, **kwargs):
         return pd.concat(
