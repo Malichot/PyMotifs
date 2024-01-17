@@ -151,8 +151,6 @@ class Tokenizer:
         REGEX = json.load(
             open(f"{PKG_DATA_PATH}/patterns_to_replace.json", "r")
         )
-        # Handle unicode errors
-        text = unicodedata.normalize("NFKD", text)
         # Replacements
         for k in REGEX:
             text = re.sub(k, REGEX[k], text)
