@@ -34,6 +34,19 @@ def load_txt(path) -> str:
         raise exc
 
 
+def split_text(text: str, max_length: int = 1000000) -> str:
+    start = 0
+    for i in range(int(len(text) // max_length) + 1):
+        sub_text = text[start:]
+        if len(sub_text) > max_length:
+            sub_text = sub_text[:max_length]
+            m = re.search(r"\s\.\w", sub_text[-5000:][::-1])
+            sub_text = sub_text[: -m.start(0)]
+            start += len(sub_text)
+            assert len(sub_text) <= max_length
+        yield sub_text
+
+
 def verify_token_type(token_type: str):
     isinstance(token_type, str)
     if token_type not in AVAILABLE_TOKEN_TYPES:
@@ -146,19 +159,8 @@ class Tokenizer:
 
         return text.strip()
 
-    def transform_text(self, text: str, validate: bool = False):
-        """
-
-        Transform a text to tokens with linguistic information and motifs
-        :param text: a text
-        :param validate: Validate Matcher pattern, see Spacy
-        :return: data, a DataFrame with columns ["text", "lemma", "pos",
-        "morph", "dep", "n_lefts", "n_rights", "motif"]. See token Spacy
-        documentation for more information.
-        """
-        text = self.preprocessing(text)
+    def annotate_text(self, text: str, validate: bool = False) -> pd.DataFrame:
         doc = self.nlp(text)
-
         if self.token_type == "motif":
             # Initialized dataframe
             # Initialized motif column with lemma
@@ -253,6 +255,39 @@ class Tokenizer:
         data["sent_id"] = data["is_sent_start"].cumsum() - 1
 
         return data
+
+    def transform_text(self, text: str, validate: bool = False):
+        """
+
+        Transform a text to tokens with linguistic information and motifs
+        :param text: a text
+        :param validate: Validate Matcher pattern, see Spacy
+        :return: data, a DataFrame with columns ["text", "lemma", "pos",
+        "morph", "dep", "n_lefts", "n_rights", "motif"]. See token Spacy
+        documentation for more information.
+        """
+        text = self.preprocessing(text)
+        # Text is too long, split it and annotate
+        if len(text) > self.nlp.max_length:
+            LOGGER.debug("Text is too long! Split and annotate...")
+            data = pd.DataFrame()
+            c = 0
+            for sub_text in split_text(text, max_length=self.nlp.max_length):
+                # self.nlp.max_length
+                LOGGER.debug(
+                    f"Annotate split {c} of length {len(sub_text)}..."
+                )
+                temp = self.annotate_text(sub_text, validate=validate)
+                if c > 0:
+                    last_send_id = data.sent_id.max()
+                    temp["sent_id"] = temp["sent_id"] + data.sent_id.max() + 1
+                    assert temp.sent_id.min() == last_send_id + 1
+                data = pd.concat([data, temp], ignore_index=True)
+                LOGGER.debug("Done.")
+                c += 1
+            return data
+        else:
+            return self.annotate_text(text, validate=validate)
 
     def transform_corpus(self, save: bool = False, **kwargs):
         errors = []
