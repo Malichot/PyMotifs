@@ -1,12 +1,14 @@
 import os
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 
 
-def load_tokens_from_directory(dir_):
-    files = [f for f in os.listdir(dir_) if f.endswith(".csv")]
+def load_tokens_from_directory(dir_: str, docs: List[str] = None):
+    if docs is None:
+        docs = os.listdir(dir_)
+    files = [f for f in os.listdir(dir_) if f.endswith(".csv") and f in docs]
     tokens = pd.concat(
         [pd.read_csv(f"{dir_}/{f}") for f in files], ignore_index=True
     )

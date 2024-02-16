@@ -3,7 +3,7 @@ import os
 import re
 import time
 import unicodedata
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 import pandas as pd
 import spacy_udpipe
@@ -77,7 +77,9 @@ class Tokenizer:
 
     :param corpus_dir: The folder where the corpus is located. The corpus
     must contain at least one document as a .txt file.
-
+    :param docs: List of documents names with the  tokens_dir or corpus_dir.
+    Provide a docs list to only load data from the specified documents with the
+     directory.
     :param token_type: name of the token to obtain should be one of ["text",
     "lemma", "pos", "motif"]
     :param motifs: A dictionary of motif with the following structure
@@ -105,12 +107,14 @@ class Tokenizer:
     def __init__(
         self,
         corpus_dir: str,
+        docs: Optional[List] = None,
         token_type: str = "motif",
         motifs: Optional[dict[list[dict[Any]]]] = BASE_MOTIFS,
         output_dir: Optional[str] = None,
         lang: str = "fr",
     ):
         self.corpus_dir = corpus_dir
+        self.docs = docs
         self.token_type = token_type
         verify_token_type(token_type)
         if token_type == "motif" and motifs is None:
@@ -130,11 +134,13 @@ class Tokenizer:
                     f"The destination folder {self.output_dir} already "
                     f"exists, outputs will be overwritten!"
                 )
-
+        if docs is None:
+            docs = os.listdir(self.corpus_dir)
         self.corpus_path = {
             f: os.path.join(self.corpus_dir, f)
             for f in filter(
-                lambda p: p.endswith("txt"), os.listdir(self.corpus_dir)
+                lambda p: p.endswith("txt") and p in docs,
+                os.listdir(self.corpus_dir),
             )
         }
         self.motifs = motifs

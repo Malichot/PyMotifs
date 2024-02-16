@@ -1,6 +1,6 @@
 import datetime as dt
 import os
-from typing import Optional
+from typing import List, Optional
 
 import seaborn as sns
 
@@ -47,6 +47,9 @@ class Pipeline:
     of `motifs.tokenizer.Tokenizer`. This is used by default.
     :param corpus_dir: If the tokens_dir is not provided, then the Pipeline
     will perform tokenization on corpus_dir (cf motifs.tokenizer.Tokenizer)
+    :param docs: List of documents names with the  tokens_dir or corpus_dir.
+    Provide a docs list to only load data from the specified documents with the
+     directory.
     :param save:
     :param kwargs:
     """
@@ -57,6 +60,7 @@ class Pipeline:
         feature: dict,
         tokens_dir: Optional[str] = None,
         corpus_dir: Optional[str] = None,
+        docs: Optional[List] = None,
         save: bool = True,
         **kwargs,
     ):
@@ -85,20 +89,26 @@ class Pipeline:
             tokenizer_dir = None
 
         if tokens_dir is not None:
-            self.__tokens = load_tokens_from_directory(tokens_dir)
-        else:
-            if corpus_dir is None:
-                LOGGER.error("You must pass tokens_dir or corpus_dir!")
-                raise ValueError
-            self.tokenizer = Tokenizer(
-                corpus_dir=corpus_dir,
-                token_type=token_type,
-                output_dir=tokenizer_dir,
-                **kwargs,
+            self.__tokens = load_tokens_from_directory(tokens_dir, docs)
+            self.__tokens.rename(
+                {self.token_type: "token"}, axis=1, inplace=True
             )
-            self.__tokens = self.tokenizer.transform(save=save)
-
-        self.__tokens.rename({self.token_type: "token"}, axis=1, inplace=True)
+        else:
+            if corpus_dir is not None:
+                # if corpus_dir is None:
+                #     LOGGER.error("You must pass tokens_dir or corpus_dir!")
+                #     raise ValueError
+                self.tokenizer = Tokenizer(
+                    corpus_dir=corpus_dir,
+                    token_type=token_type,
+                    output_dir=tokenizer_dir,
+                    docs=docs,
+                    **kwargs,
+                )
+                self.__tokens = self.tokenizer.transform(save=save)
+                self.__tokens.rename(
+                    {self.token_type: "token"}, axis=1, inplace=True
+                )
 
         self.__features_data = None
         self.__ngrams = None
@@ -188,6 +198,10 @@ class Pipeline:
     @property
     def ngrams(self):
         return self.__ngrams
+
+    @ngrams.setter
+    def ngrams(self, ngrams):
+        self.__ngrams = ngrams
 
     @property
     def transformer(self):
