@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,7 @@ def ngrams(tokens: list, n: int) -> list[tuple]:
 
 def ngrams_to_text(tokens: list, n: int):
     tokens = ngrams(tokens, n)
-    return [" ".join(t) for t in tokens]
+    return [" ".join(map(str, t)) for t in tokens]
 
 
 def transform_corpus_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
@@ -28,7 +28,13 @@ def transform_corpus_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
 
     ngrams = pd.DataFrame()
     for f in data.doc.unique():
-        temp = transform_token_to_ngrams(data[data["doc"] == f], n)
+        try:
+            temp = transform_token_to_ngrams(data[data["doc"] == f], n)
+        except Exception as _exc:
+            LOGGER.error(
+                f"Error while transforming tokens to n-grams for document {f}!"
+            )
+            raise _exc
         # Add first word of each n-gram
         temp["word"] = data.loc[data["doc"] == f, "text"].values[: -n + 1]
         ngrams = pd.concat([ngrams, temp], ignore_index=True)
@@ -36,7 +42,7 @@ def transform_corpus_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
     ngrams = ngrams.drop("text", axis=1).rename(
         {"ngram_text": "text", "ngram_token": "token"}, axis=1
     )
-
+    ngrams = ngrams.astype(str)
     return ngrams[["word", "text", "token", "doc"]]
 
 
@@ -295,3 +301,33 @@ def build_cooccurrence_matrix(
     cooc.setdiag(data.groupby("token")["diag"].sum().loc[cols], k=0)
 
     return cooc, rows, cols, row_pos, col_pos
+
+
+def bow_to_matrix(
+    bow: List[Tuple[int, Union[int, float]]], shape: Tuple
+) -> csr_array:
+    """
+
+    :param bow: list of (int, float) – BoW representation of document.
+    :param shape:
+    :return:
+    """
+    cs_data = np.array([[e[1], r, e[0]] for r, d in enumerate(bow) for e in d])
+    mat_tfidf = csr_array(
+        (cs_data[:, 0], (cs_data[:, 1], cs_data[:, 2])),
+        shape=shape,
+        dtype=np.float32,
+    )
+    return mat_tfidf
+
+
+def bow_to_dataframe(
+    bow: List[Tuple[int, Union[int, float]]],
+    shape: Tuple,
+    columns: Optional[List] = None,
+    index: Optional[List] = None,
+) -> pd.DataFrame:
+    mat = bow_to_matrix(bow, shape)
+    return pd.DataFrame(
+        mat.toarray(), columns=columns, index=index, dtype=np.float32
+    )
