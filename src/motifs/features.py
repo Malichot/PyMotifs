@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from gensim import corpora, models
 from scipy.sparse import csr_array
 from scipy.stats import hypergeom
 
@@ -67,6 +68,80 @@ def transform_token_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
 
 
 def build_tfidf(
+    data: pd.DataFrame, idf: Optional[pd.Series] = None, **kwargs
+) -> Tuple[pd.DataFrame, pd.Series]:
+    """
+    Compute TFIDF features on the provided corpus.
+
+    :param data: A DataFrame containing the corpus with columns
+    ["token", "doc"]
+    :param idf: Optional. If provided the IDF will be used to normalize the
+    TF, typically used for normalizing a test sample after having computed
+    the IDF on a train sample.
+    :param kwargs: Cf gensim.models.tfidfmodel.TfidfModel keywords parameters
+    :return: A DataFrame with columns ["token", "doc", "tfidf"] and the IDF
+    (which can be used in a latter phase to normalize a test sample).
+    """
+    print("kwargs", kwargs)
+    if not set(["token", "doc"]).issubset(set(data.columns)):
+        LOGGER.error(
+            "Wrong columns names: ['token', 'doc'] are not in the data"
+        )
+        raise AssertionError
+
+    if idf is not None:
+        # Remove tokens that do not have an idf
+        data = data[data["token"].isin(idf.index)]
+
+    docs = set(data.doc)
+    texts = [data[data["doc"] == d]["token"].tolist() for d in docs]
+
+    # Create token dictionary
+    dictionary = corpora.Dictionary(texts)
+    # Vectorization in bag of words
+    bow_corpus = [dictionary.doc2bow(text) for text in texts]
+    columns = list(
+        {id_: dictionary[id_] for id_ in dictionary.token2id.values()}.values()
+    )
+
+    if idf is not None:
+        # Compute tf
+        tf = bow_to_dataframe(
+            [d for d in bow_corpus],
+            shape=(len(bow_corpus), len(dictionary.token2id)),
+            columns=columns,
+            index=docs,
+        )
+        tfidf = (tf * idf).astype(np.float32)
+    else:
+        # Fit the TFidf model
+        model = models.TfidfModel(
+            bow_corpus,
+            normalize=kwargs.get("normalize", True),
+            smartirs=kwargs.get("smartirs", "nfc"),
+        )
+        tfidf = bow_to_dataframe(
+            [model[d] for d in bow_corpus],
+            shape=(len(bow_corpus), len(dictionary.token2id)),
+            columns=columns,
+            index=docs,
+        )
+        idf = pd.Series(model.idfs).rename(dictionary.id2token)
+
+    # Reorganize df
+    tfidf = (
+        tfidf.stack()
+        .sort_values(ascending=False)
+        .reset_index()
+        .rename({"level_0": "doc", "level_1": "token", 0: "tfidf"}, axis=1)[
+            ["token", "doc", "tfidf"]
+        ]
+    )
+
+    return tfidf, idf
+
+
+def build_tfidf_old(
     data: pd.DataFrame, idf: Optional[pd.Series] = None
 ) -> Tuple[pd.DataFrame, pd.Series]:
     """

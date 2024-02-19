@@ -133,12 +133,12 @@ class Pipeline:
                 "You must first call `transform_to_ngrams` to get ngrams!"
             )
             raise AssertionError
-        # Remove empty cells (just in case)
-        empty_cells = self.__ngrams.apply(lambda x: x.apply(len)) != 0
-        self.__ngrams = self.__ngrams[empty_cells.all(axis=1)]
 
         if self.feature["name"] == "tfidf":
-            features_data, _ = build_tfidf(self.__ngrams)
+            features_data, _ = build_tfidf(
+                self.__ngrams,
+                **self.feature.get("params", {}),
+            )
         elif self.feature["name"] == "freq":
             features_data = build_token_freq(
                 self.__ngrams,

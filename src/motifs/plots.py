@@ -1,8 +1,10 @@
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_samples, silhouette_score
 
 from motifs.config import LOGGER
 
@@ -165,3 +167,144 @@ def plot_motif_histogram(
     )
 
     facet_bar_plot(freq, plot_type=plot_type, xlabel=stat)
+
+
+def plot_clusters(X, cluster_labels, ax=None, title=None):
+    n_clusters = len(set(cluster_labels))
+    noise = cluster_labels == -1
+    # 2nd Plot showing the actual clusters formed
+    colors = cm.nipy_spectral(cluster_labels.astype(float) / n_clusters)
+    if ax is None:
+        ax = plt
+    if sum(noise) > 0:
+        ax.scatter(
+            X[~noise, 0],
+            X[~noise, 1],
+            lw=0,
+            alpha=0.7,
+            c=colors[~noise],
+            edgecolor="k",
+        )
+        ax.scatter(
+            X[noise, 0],
+            X[noise, 1],
+            marker="x",
+            alpha=0.5,
+            s=30,
+            c="grey",
+        )
+    else:
+        ax.scatter(
+            X[:, 0], X[:, 1], lw=0, alpha=0.7, c=colors[~noise], edgecolor="k"
+        )
+
+    # Labeling the clusters
+    centers = np.array(
+        [
+            np.mean(X[cluster_labels == i, :], axis=0)
+            for i in set(cluster_labels)
+            if i != -1
+        ]
+    )
+    # Draw white circles at cluster centers
+    ax.scatter(
+        centers[:, 0],
+        centers[:, 1],
+        marker="o",
+        c="white",
+        alpha=1,
+        s=200,
+        edgecolor="k",
+    )
+
+    for i, c in enumerate(centers):
+        label = list(set(cluster_labels))[i]
+        if label != -1:
+            ax.scatter(
+                c[0],
+                c[1],
+                marker="$%d$" % label,
+                alpha=1,
+                s=50,
+                edgecolor="k",
+            )
+    if title is not None:
+        ax.set_title(title)
+
+
+def silhouette_plot(X, cluster_labels, metric: str = "euclidean"):
+    """
+    cf: https://scikit-learn.org/stable/auto_examples/cluster/plot_kmeans_silhouette_analysis.html
+    :param X:
+    :param cluster_labels:
+    :return:
+    """
+    if -1 in cluster_labels:
+        n_clusters = len(set(cluster_labels)) - 1
+    else:
+        n_clusters = len(set(cluster_labels))
+
+    # Create a subplot with 1 row and 2 columns
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig.set_size_inches(18, 7)
+
+    # The 1st subplot is the silhouette plot
+    # The (n_clusters+1)*10 is for inserting blank space between silhouette
+    # plots of individual clusters, to demarcate them clearly.
+    ax1.set_ylim([0, len(X) + (n_clusters + 1) * 10])
+
+    # Compute the silhouette scores for each sample
+    sample_silhouette_values = silhouette_samples(X, cluster_labels)
+    y_lower = 10
+    for i in set(cluster_labels):
+        if i != -1:
+            # Aggregate the silhouette scores for samples belonging to
+            # cluster i, and sort them
+            ith_cluster_silhouette_values = sample_silhouette_values[
+                cluster_labels == i
+            ]
+
+            ith_cluster_silhouette_values.sort()
+
+            size_cluster_i = ith_cluster_silhouette_values.shape[0]
+            y_upper = y_lower + size_cluster_i
+
+            color = cm.nipy_spectral(float(i) / n_clusters)
+            ax1.fill_betweenx(
+                np.arange(y_lower, y_upper),
+                0,
+                ith_cluster_silhouette_values,
+                facecolor=color,
+                edgecolor=color,
+                alpha=0.7,
+            )
+            # Label the silhouette plots with their cluster numbers at the
+            # middle
+            ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+            # Compute the new y_lower for next plot
+            y_lower = y_upper + 10
+
+    ax1.set_title("Silhouette plot for the various clusters.")
+    ax1.set_xlabel("Silhouette coefficient values")
+    ax1.set_ylabel("Cluster label")
+
+    # The vertical line for average silhouette score of all the values
+    noise = cluster_labels == -1
+    silhouette_avg = silhouette_score(
+        X[~noise, :], cluster_labels[~noise], metric=metric
+    )
+    ax1.axvline(x=silhouette_avg, color="red", linestyle="--")
+    ax1.set_yticks([])  # Clear the yaxis labels / ticks
+    # ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+
+    # 2nd Plot showing the actual clusters formed
+    plot_clusters(X, cluster_labels, ax=ax2, title="Clustered Data")
+    plt.suptitle(
+        "Silhouette analysis for DBSCAN clustering on sample data with "
+        "n_clusters = %d" % n_clusters,
+        fontsize=14,
+        fontweight="bold",
+    )
+    plt.show()
+
+    return sample_silhouette_values
