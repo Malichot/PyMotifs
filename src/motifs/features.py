@@ -45,9 +45,9 @@ def transform_corpus_to_ngrams(
             ngrams = pd.concat([ngrams, temp], ignore_index=True)
     else:
 
-        def worker(data, f, n):
+        def worker(data, f, n, i):
+            LOGGER.debug(f"Steps to go {N - i}")
             try:
-                LOGGER.debug(f"Transforming document {f} to {n}-grams...")
                 return transform_token_to_ngrams(data, n)
             except Exception as _exc:
                 LOGGER.error(
@@ -57,9 +57,11 @@ def transform_corpus_to_ngrams(
                 raise _exc
 
         data = data[["text", "token", "doc"]].astype(str)
+        docs = data.doc.unique()
+        N = len(docs)
         ngrams = Parallel(n_jobs=n_jobs)(
-            delayed(worker)(data[data["doc"] == f], f, n)
-            for f in data.doc.unique()
+            delayed(worker)(data[data["doc"] == f], f, n, i)
+            for i, f in enumerate(docs)
         )
         ngrams = pd.concat(
             [d for d in ngrams if d is not None], ignore_index=True
