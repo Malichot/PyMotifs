@@ -213,3 +213,29 @@ def return_to_text_from_spec(
             .sort_values(by=["spec", "doc"], ascending=False)
         )
     return output
+
+
+def filter_token_by_freq(
+    tokens: pd.DataFrame, f: int, groupby: Optional[str] = None
+) -> pd.DataFrame:
+    """
+    Filter out tokens that appear only $f$ times. If groupby is give,
+    then the count is computed at the groupby level.
+
+    :param tokens: a DataFrame with column "token" and `groupby` if given
+    :param f: the frequency
+    :param groupby: Level at which to compute the frequency
+    :return:
+    """
+    if groupby:
+        freq = tokens.groupby(groupby)["token"].value_counts()
+    else:
+        freq = tokens["token"].value_counts()
+    if groupby:
+        index_col = [groupby, "token"]
+    else:
+        index_col = "token"
+    tokens = (
+        tokens.set_index(index_col).loc[freq[freq > f].index].reset_index()
+    )
+    return tokens
