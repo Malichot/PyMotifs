@@ -3,15 +3,28 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
+
+from motifs.config import LOGGER
 
 
 def load_tokens_from_directory(dir_: str, docs: List[str] = None):
     if docs is None:
         docs = os.listdir(dir_)
     files = [f for f in os.listdir(dir_) if f.endswith(".csv") and f in docs]
-    tokens = pd.concat(
-        [pd.read_csv(f"{dir_}/{f}") for f in files], ignore_index=True
+
+    def worker(f):
+        path = f"{dir_}/{f}"
+        try:
+            return pd.read_csv(path)
+        except Exception as _exc:
+            LOGGER.error(f"Could not load file {path}")
+            LOGGER.exception(_exc)
+
+    tokens = Parallel(n_jobs=os.cpu_count(), prefer="threads")(
+        delayed(worker)(f) for f in files
     )
+    tokens = pd.concat(tokens, ignore_index=True)
     return tokens
 
 

@@ -1,5 +1,6 @@
 import datetime as dt
 import os
+import time
 from typing import List, Optional
 
 import seaborn as sns
@@ -57,7 +58,6 @@ class Pipeline:
     def __init__(
         self,
         token_type: str,
-        feature: dict,
         tokens_dir: Optional[str] = None,
         corpus_dir: Optional[str] = None,
         docs: Optional[List] = None,
@@ -65,8 +65,7 @@ class Pipeline:
         **kwargs,
     ):
         self.token_type = token_type
-        verify_feature(feature)
-        self.feature = feature
+        self.save = save
         if save:
             self.output_dir = (
                 f"{os.getcwd()}/"
@@ -89,7 +88,11 @@ class Pipeline:
             tokenizer_dir = None
 
         if tokens_dir is not None:
+            t1 = time.time()
+            LOGGER.debug(f"Loading tokens from directory: {tokens_dir}...")
             self.__tokens = load_tokens_from_directory(tokens_dir, docs)
+            t2 = time.time()
+            LOGGER.debug(f"Done in {t2-t1:.2f} secs.")
             self.__tokens.rename(
                 {self.token_type: "token"}, axis=1, inplace=True
             )
@@ -110,6 +113,7 @@ class Pipeline:
                     {self.token_type: "token"}, axis=1, inplace=True
                 )
 
+        self.feature = None
         self.__features_data = None
         self.__ngrams = None
         self.__transformer = None
@@ -119,15 +123,18 @@ class Pipeline:
         # Remove empty cells (just in case)
         empty_cells = self.__ngrams.apply(lambda x: x.apply(len)) != 0
         self.__ngrams = self.__ngrams[empty_cells.all(axis=1)]
+        if self.save:
+            self.__ngrams.to_csv(f"{self.output_dir}/ngrams.csv", index=False)
 
-    def get_features(self):
+    def get_features(self, feature):
         """
 
-        :param method:
-        :param plot:
-        :param kwargs:
+        :param feature:
         :return:
         """
+        verify_feature(feature)
+        self.feature = feature
+
         if self.__ngrams is None:
             LOGGER.error(
                 "You must first call `transform_to_ngrams` to get ngrams!"
@@ -151,10 +158,18 @@ class Pipeline:
 
         return features_data
 
-    def execute(self, n: int, method: str, plot: bool = False, **kwargs):
+    def execute(
+        self,
+        n: int,
+        feature: dict,
+        method: str,
+        plot: bool = False,
+        **kwargs,
+    ):
         """
 
         :param n: n-gram length
+        :param feature:
         :param method:
         :param plot:
         :param kwargs:
@@ -168,7 +183,7 @@ class Pipeline:
             # Plot distribution of tokens
             plot_motif_histogram(self.ngrams, **kwargs)
 
-        self.__features_data = self.get_features()
+        self.__features_data = self.get_features(feature)
         if plot:
             if self.feature["name"] == "tfidf":
                 plot_tf_idf(

@@ -1,9 +1,11 @@
 import math
+import os
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from gensim import corpora, models
+from joblib import Parallel, delayed
 from scipy.sparse import csr_array
 from scipy.stats import hypergeom
 
@@ -19,50 +21,73 @@ def ngrams_to_text(tokens: list, n: int):
     return [" ".join(map(str, t)) for t in tokens]
 
 
-def transform_corpus_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
+def transform_corpus_to_ngrams(
+    data: pd.DataFrame, n: int, n_jobs: int = 2 * os.cpu_count()
+) -> pd.DataFrame:
     """
 
-    :param data:
+    :param data: a DataFrame with text, token and doc as columns
     :param n: n-gram length
+    :param n_jobs: Number of parallel tasks
     :return:
     """
 
-    ngrams = pd.DataFrame()
-    for f in data.doc.unique():
-        try:
-            temp = transform_token_to_ngrams(data[data["doc"] == f], n)
-        except Exception as _exc:
-            LOGGER.error(
-                f"Error while transforming tokens to n-grams for document {f}!"
-            )
-            raise _exc
-        # Add first word of each n-gram
-        temp["word"] = data.loc[data["doc"] == f, "text"].values[: -n + 1]
-        ngrams = pd.concat([ngrams, temp], ignore_index=True)
+    if n_jobs == 1:
+        ngrams = pd.DataFrame()
+        for f in data.doc.unique():
+            try:
+                temp = transform_token_to_ngrams(data[data["doc"] == f], n)
+            except Exception as _exc:
+                LOGGER.error(
+                    f"Error while transforming tokens to n-grams for document {f}!"
+                )
+                raise _exc
+            ngrams = pd.concat([ngrams, temp], ignore_index=True)
+    else:
 
-    ngrams = ngrams.drop("text", axis=1).rename(
-        {"ngram_text": "text", "ngram_token": "token"}, axis=1
+        def worker(data, f, n):
+            try:
+                LOGGER.debug(f"Transforming document {f} to {n}-grams...")
+                return transform_token_to_ngrams(data, n)
+            except Exception as _exc:
+                LOGGER.error(
+                    f"Error while transforming tokens to {n}-grams for "
+                    f"document {f}!"
+                )
+                raise _exc
+
+        data = data[["text", "token", "doc"]].astype(str)
+        ngrams = Parallel(n_jobs=n_jobs)(
+            delayed(worker)(data[data["doc"] == f], f, n)
+            for f in data.doc.unique()
+        )
+        ngrams = pd.concat(
+            [d for d in ngrams if d is not None], ignore_index=True
+        )
+
+    ngrams = ngrams.rename(
+        {"text": "word", "ngram_text": "text", "ngram_token": "token"}, axis=1
     )
-    ngrams = ngrams.astype(str)
-    return ngrams[["word", "text", "token", "doc"]]
+    return ngrams[["word", "text", "token", "doc"]].astype(str)
 
 
 def transform_token_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
-    if "token" not in data.columns:
-        LOGGER.error("The target column is not in the input data!")
-        raise AssertionError
+    """
 
+    :param data: a DataFrame with text, token and doc as columns
+    :param n: n-gram length
+    :return:
+    """
+    data = data[["text", "token", "doc"]].values
     df_ngrams = pd.DataFrame(
         [
-            ngrams_to_text(data["text"].values.tolist(), n),
-            ngrams_to_text(data["token"].values.tolist(), n),
+            ngrams_to_text(data[:, 0], n),
+            ngrams_to_text(data[:, 1], n),
         ],
         index=["ngram_text", "ngram_token"],
     ).T
-    assert len(data) - len(df_ngrams) == n - 1
-
-    df_ngrams["text"] = data["text"].values[: -(n - 1)]
-    df_ngrams["doc"] = data["doc"].values[: -(n - 1)]
+    df_ngrams["text"] = data[:, 0][: -(n - 1)]
+    df_ngrams["doc"] = data[:, 1][: -(n - 1)]
 
     return df_ngrams
 
@@ -82,7 +107,6 @@ def build_tfidf(
     :return: A DataFrame with columns ["token", "doc", "tfidf"] and the IDF
     (which can be used in a latter phase to normalize a test sample).
     """
-    print("kwargs", kwargs)
     if not set(["token", "doc"]).issubset(set(data.columns)):
         LOGGER.error(
             "Wrong columns names: ['token', 'doc'] are not in the data"
@@ -93,10 +117,9 @@ def build_tfidf(
         # Remove tokens that do not have an idf
         data = data[data["token"].isin(idf.index)]
 
-    docs = set(data.doc)
-    texts = [data[data["doc"] == d]["token"].tolist() for d in docs]
-
     # Create token dictionary
+    docs = list(set(data.doc))
+    texts = [data[data["doc"] == d]["token"].tolist() for d in docs]
     dictionary = corpora.Dictionary(texts)
     # Vectorization in bag of words
     bow_corpus = [dictionary.doc2bow(text) for text in texts]

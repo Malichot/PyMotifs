@@ -19,3 +19,9 @@ With conda: `conda create -n pymotifs python=3.11`
 - Install with `pip install ."[dev]"` at the source
 - Install pre-commit hooks with `pre-commit install`
 - Start to code
+
+### Notes
+
+- Careful about **scipy** and **joblib** versions. There are issues with
+  joblib when performing tasks in multiprocessing. The package was tested
+  with **joblib==1.3.2** and **scipy==1.11.4**.
