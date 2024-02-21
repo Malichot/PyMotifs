@@ -15,7 +15,7 @@ from motifs.features import (
 from motifs.pca import pca_transform
 from motifs.plots import plot_motif_histogram, plot_tf_idf
 from motifs.tokenizer import Tokenizer
-from motifs.utils import load_tokens_from_directory
+from motifs.utils import filter_token_by_freq, load_tokens_from_directory
 
 """
 feature = [{
@@ -118,11 +118,14 @@ class Pipeline:
         self.__ngrams = None
         self.__transformer = None
 
-    def transform_to_ngrams(self, n):
+    def transform_to_ngrams(self, n, freq_filter: bool = False, **kwargs):
         self.__ngrams = transform_corpus_to_ngrams(self.tokens, n)
+
         # Remove empty cells (just in case)
         empty_cells = self.__ngrams.apply(lambda x: x.apply(len)) != 0
         self.__ngrams = self.__ngrams[empty_cells.all(axis=1)]
+        if freq_filter:
+            self.__ngrams = filter_token_by_freq(self.__ngrams, **kwargs)
         if self.save:
             self.__ngrams.to_csv(f"{self.output_dir}/ngrams.csv", index=False)
 
@@ -142,7 +145,7 @@ class Pipeline:
             raise AssertionError
 
         if self.feature["name"] == "tfidf":
-            features_data, _ = build_tfidf(
+            features_data, _, _ = build_tfidf(
                 self.__ngrams,
                 **self.feature.get("params", {}),
             )
