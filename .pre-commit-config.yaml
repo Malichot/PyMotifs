@@ -3,8 +3,11 @@ repos:
     rev: v4.4.0
     hooks:
       - id: check-yaml
+        exclude: .*\.ipynb$
       - id: end-of-file-fixer
+        exclude: .*\.ipynb$
       - id: trailing-whitespace
+        exclude: .*\.ipynb$
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
