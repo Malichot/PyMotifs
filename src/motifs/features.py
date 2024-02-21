@@ -89,22 +89,27 @@ def transform_token_to_ngrams(data: pd.DataFrame, n: int) -> pd.DataFrame:
         index=["ngram_text", "ngram_token"],
     ).T
     df_ngrams["text"] = data[:, 0][: -(n - 1)]
-    df_ngrams["doc"] = data[:, 1][: -(n - 1)]
+    df_ngrams["doc"] = data[:, 2][: -(n - 1)]
 
     return df_ngrams
 
 
 def build_tfidf(
-    data: pd.DataFrame, idf: Optional[pd.Series] = None, **kwargs
+    data: pd.DataFrame,
+    model: Optional[models.TfidfModel] = None,
+    dictionary: Optional[corpora.Dictionary] = None,
+    **kwargs,
 ) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Compute TFIDF features on the provided corpus.
 
     :param data: A DataFrame containing the corpus with columns
     ["token", "doc"]
-    :param idf: Optional. If provided the IDF will be used to normalize the
-    TF, typically used for normalizing a test sample after having computed
-    the IDF on a train sample.
+    :param model: If provided the idf and normalization from the previously
+    fitted model will be used to weight the TF, typically used for
+    normalizing a test sample after having computed the IDF on a train
+    sample. You should pass the dictionary of the train sample as well.
+    :param dictionary: Dictionary on which the model was fitted
     :param kwargs: Cf gensim.models.tfidfmodel.TfidfModel keywords parameters
     :return: A DataFrame with columns ["token", "doc", "tfidf"] and the IDF
     (which can be used in a latter phase to normalize a test sample).
@@ -115,29 +120,27 @@ def build_tfidf(
         )
         raise AssertionError
 
-    if idf is not None:
-        # Remove tokens that do not have an idf
-        data = data[data["token"].isin(idf.index)]
-
     # Create token dictionary
     docs = list(set(data.doc))
     texts = [data[data["doc"] == d]["token"].tolist() for d in docs]
-    dictionary = corpora.Dictionary(texts)
+    if dictionary is not None:
+        dictionary.add_documents(texts)
+    else:
+        dictionary = corpora.Dictionary(texts)
     # Vectorization in bag of words
     bow_corpus = [dictionary.doc2bow(text) for text in texts]
     columns = list(
         {id_: dictionary[id_] for id_ in dictionary.token2id.values()}.values()
     )
 
-    if idf is not None:
-        # Compute tf
-        tf = bow_to_dataframe(
-            [d for d in bow_corpus],
+    if model is not None:
+        # Apply tfidf model
+        tfidf = bow_to_dataframe(
+            [model[d] for d in bow_corpus],
             shape=(len(bow_corpus), len(dictionary.token2id)),
             columns=columns,
             index=docs,
         )
-        tfidf = (tf * idf).astype(np.float32)
     else:
         # Fit the TFidf model
         model = models.TfidfModel(
@@ -151,7 +154,6 @@ def build_tfidf(
             columns=columns,
             index=docs,
         )
-        idf = pd.Series(model.idfs).rename(dictionary.id2token)
 
     # Reorganize df
     tfidf = (
@@ -163,7 +165,7 @@ def build_tfidf(
         ]
     )
 
-    return tfidf, idf
+    return tfidf, model, dictionary
 
 
 def build_tfidf_old(
