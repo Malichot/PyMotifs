@@ -45,7 +45,7 @@ def build_window_corpus(
     :return:
     """
     if not overlap:
-        assert n is not None, "You must provide n if overlap is True!"
+        assert n is not None, "You must provide n if overlap is False!"
     window_ngram = pd.DataFrame()
     for doc in ngrams.doc.unique():
         temp = ngrams[ngrams["doc"] == doc]
