@@ -35,16 +35,16 @@ def load_txt(path) -> str:
 
 
 def split_text(text: str, max_length: int = 1000000) -> str:
-    start = 0
-    for i in range(int(len(text) // max_length) + 1):
-        sub_text = text[start:]
-        if len(sub_text) > max_length:
-            sub_text = sub_text[:max_length]
-            m = re.search(r"\s\.\w", sub_text[-5000:][::-1])
-            sub_text = sub_text[: -m.start(0)]
-            start += len(sub_text)
-            assert len(sub_text) <= max_length
-        yield sub_text
+    """
+
+    :param text: Text to split
+    :param pattern: Regex pattern to define where to split in windows,
+    not applied by default (None)
+    :param max_length:
+    :return:
+    """
+    for i in range(0, len(text), max_length):
+        yield text[i : i + max_length]
 
 
 def verify_token_type(token_type: str):
