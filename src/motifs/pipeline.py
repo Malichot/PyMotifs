@@ -32,6 +32,13 @@ def verify_feature(feature: dict):
 
 class Pipeline:
     """
+    The Motif pipeline transforms a corpus to motif-based features, or other
+    UDPipe tokens, such as POS, lemma, etc. It consists of 4 steps:
+    - UDPipe tokenization of the corpus
+    - tokens preprocessing with n-gram transformation
+    - n-grams featurization, for example: TFIDF or TF
+    - visualization, for example: PCA analysis, distributional plots,
+    specificity analysis.
 
     :param token_type: type of the token to use for the analysis. Should be
     one of ["text", "lemma", "pos", "motif"]
