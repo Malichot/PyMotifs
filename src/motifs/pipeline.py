@@ -17,13 +17,6 @@ from motifs.plots import plot_motif_histogram, plot_tf_idf
 from motifs.tokenizer import Tokenizer
 from motifs.utils import filter_token_by_freq, load_tokens_from_directory
 
-"""
-feature = [{
-    "name": "freq",
-    "params": {}
-}]
-"""
-
 
 def verify_feature(feature: dict):
     assert isinstance(feature, dict)
@@ -62,15 +55,19 @@ class Pipeline:
         corpus_dir: Optional[str] = None,
         docs: Optional[List] = None,
         save: bool = True,
+        output_dir: Optional[str] = None,
         **kwargs,
     ):
         self.token_type = token_type
         self.save = save
         if save:
-            self.output_dir = (
-                f"{os.getcwd()}/"
-                + f"{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}_pipeline"
-            )
+            if output_dir:
+                self.output_dir = output_dir
+            else:
+                self.output_dir = (
+                    f"{os.getcwd()}/"
+                    + f"{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}_pipeline"
+                )
             if not os.path.isdir(self.output_dir):
                 LOGGER.debug(
                     f"Creating output destination at {self.output_dir}"
@@ -98,9 +95,6 @@ class Pipeline:
             )
         else:
             if corpus_dir is not None:
-                # if corpus_dir is None:
-                #     LOGGER.error("You must pass tokens_dir or corpus_dir!")
-                #     raise ValueError
                 self.tokenizer = Tokenizer(
                     corpus_dir=corpus_dir,
                     token_type=token_type,
