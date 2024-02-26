@@ -17,19 +17,19 @@ def create_config_params(
     projection: Union[str, dict], cluster: Union[str, dict]
 ) -> dict:
     config = {}
-    if isinstance(projection, dict):
-        projection_name = projection.name
-        params = projection.get(
-            "params", DEFAULT_PROJECTION_PARAMS[projection_name]
-        )
-    elif isinstance(projection, str):
-        projection_name = projection
-        params = DEFAULT_PROJECTION_PARAMS[projection_name]
-    elif projection is None:
-        projection_name = None
-    else:
-        raise NotImplementedError(type(projection))
-    config["projection"] = {"name": projection_name, "params": params}
+
+    if projection is not None:
+        if isinstance(projection, dict):
+            projection_name = projection.name
+            params = projection.get(
+                "params", DEFAULT_PROJECTION_PARAMS[projection_name]
+            )
+        elif isinstance(projection, str):
+            projection_name = projection
+            params = DEFAULT_PROJECTION_PARAMS[projection_name]
+        else:
+            raise NotImplementedError(type(projection))
+        config["projection"] = {"name": projection_name, "params": params}
 
     if isinstance(cluster, dict):
         cluster_name = cluster.name
