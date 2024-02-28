@@ -308,3 +308,80 @@ def silhouette_plot(X, cluster_labels, metric: str = "euclidean"):
     plt.show()
 
     return sample_silhouette_values
+
+
+def scatter_plot_one_cluster(
+    embedding: np.ndarray,
+    cluster_labels: np.ndarray,
+    label: int,
+    feature: pd.Series,
+    figsize=(15, 5),
+):
+    """
+    Scatter plot of the embedding with multiple colors:
+    - colored individuals are the one belonging to the identified cluster
+    with label=`label` and colors matching the given categories in
+    the given `feature`
+    - individuals that do not belong to the cluster are not colored
+
+    :param embedding:
+    :param cluster_labels:
+    :param label:
+    :param feature:
+    :param figsize:
+    :return:
+    """
+    authors_cat_mapping = dict(enumerate(feature.cat.categories))
+
+    assert isinstance(feature, pd.Series)
+    assert type(feature.dtype) is pd.CategoricalDtype
+    cluster_feature = feature.loc[cluster_labels == label]
+    features_cat = cluster_feature.cat.categories[
+        cluster_feature.cat.categories.isin(cluster_feature)
+    ]
+
+    fig, axs = plt.subplots(1, 3, figsize=figsize)
+    axs[0].scatter(
+        embedding[:, 0],
+        embedding[:, 1],
+        c=["red" if i else "grey" for i in cluster_labels == label],
+        alpha=0.5,
+    )
+    axs[0].set_title("Feature space")
+    axs[1].scatter(
+        embedding[cluster_labels != label, 0],
+        embedding[cluster_labels != label, 1],
+        c="grey",
+        alpha=0.5,
+    )
+    scatter = axs[1].scatter(
+        embedding[cluster_labels == label][:, 0],
+        embedding[cluster_labels == label][:, 1],
+        c=cluster_feature.cat.codes,
+        alpha=1,
+        cmap=None if len(cluster_feature.cat.codes.unique()) < 10 else "tab20",
+    )
+    legend = axs[1].legend(
+        scatter.legend_elements()[0],
+        [
+            a.split(",")[0]
+            for a in [
+                authors_cat_mapping[i]
+                for i in sorted(cluster_feature.cat.codes.unique())
+            ]
+        ],
+        title="Author",
+    )
+    axs[1].add_artist(legend)
+    axs[1].set_title("Authors in the feature space within cluster %d" % label)
+
+    bars = cluster_feature.value_counts()
+    bars = bars[bars.index.isin(features_cat)]
+    axs[2].bar(features_cat, bars, color="grey")
+    axs[2].set_xticks(
+        range(len(features_cat)),
+        [a.split(",")[0] for a in features_cat],
+        rotation=90,
+    )
+    axs[2].set_title("Author frequency within cluster %d" % label)
+    plt.show()
