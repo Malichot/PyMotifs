@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from gensim import corpora, models
+from gensim.matutils import corpus2csc
 from joblib import Parallel, delayed
 from scipy.sparse import csr_array
 from scipy.stats import hypergeom
@@ -121,7 +122,7 @@ def build_tfidf(
         raise AssertionError
 
     # Create token dictionary
-    docs = list(set(data.doc))
+    docs = sorted(list(set(data.doc)))
     texts = [data[data["doc"] == d]["token"].tolist() for d in docs]
     if dictionary is not None:
         dictionary.add_documents(texts)
@@ -137,7 +138,6 @@ def build_tfidf(
         # Apply tfidf model
         tfidf = bow_to_dataframe(
             [model[d] for d in bow_corpus],
-            shape=(len(bow_corpus), len(dictionary.token2id)),
             columns=columns,
             index=docs,
         )
@@ -146,16 +146,15 @@ def build_tfidf(
         model = models.TfidfModel(
             bow_corpus,
             normalize=kwargs.get("normalize", True),
-            smartirs=kwargs.get("smartirs", "nfc"),
+            smartirs=kwargs.get("smartirs", None),
         )
         tfidf = bow_to_dataframe(
             [model[d] for d in bow_corpus],
-            shape=(len(bow_corpus), len(dictionary.token2id)),
             columns=columns,
             index=docs,
         )
-
     # Reorganize df
+    tfidf = tfidf.sort_index(axis=1)
     tfidf = (
         tfidf.stack()
         .sort_values(ascending=False)
@@ -166,65 +165,6 @@ def build_tfidf(
     )
 
     return tfidf, model, dictionary
-
-
-def build_tfidf_old(
-    data: pd.DataFrame, idf: Optional[pd.Series] = None
-) -> Tuple[pd.DataFrame, pd.Series]:
-    """
-    Compute TFIDF features on the provided corpus.
-
-    :param data: A DataFrame containing the corpus with columns
-    ["token", "doc"]
-    :param idf: Optional. If provided the IDF will be used to normalize the
-    TF, typically used for normalizing a test sample after having computed
-    the IDF on a train sample.
-    :return: A DataFrame with columns ["token", "doc", "tfidf"] and the IDF
-    (which can be used in a latter phase to normalize a test sample).
-    """
-    if not set(["token", "doc"]).issubset(set(data.columns)):
-        LOGGER.error(
-            "Wrong columns names: ['token', 'doc'] are not in the data"
-        )
-        raise AssertionError
-
-    if idf is not None:
-        # Remove tokens that do not have an idf
-        data = data[data["token"].isin(idf.index)]
-
-    doc_names = list(set(data["doc"]))
-    # frequency of each motif per document
-    counts = (
-        pd.DataFrame(data.groupby("doc")["token"].value_counts())
-        .pivot_table(columns="doc", index="token", values="count")
-        .fillna(0)
-        .astype(int)
-    )
-
-    if idf is not None:
-        # Add missing tokens and fill with 0.
-        counts = counts.reindex(idf.index).fillna(0.0)
-
-    # Count total number of motif per document
-    n_tokens_per_doc = np.sum(counts, axis=0)
-    # Term freq: motifs count per doc / total number of motifs per doc
-    tf = counts / n_tokens_per_doc
-    if idf is None:
-        # Document freq: Count appearance of each motif over the document
-        df = np.sum(counts != 0, axis=1)
-        idf = np.log(len(doc_names) / df)
-
-    tfidf = tf * idf.loc[tf.index].values.reshape(-1, 1)
-    # Reorganise
-    tfidf = pd.DataFrame(
-        tfidf.stack().sort_values(ascending=False)
-    ).reset_index()
-    tfidf.columns = ["token", "doc", "tfidf"]
-
-    if idf is not None:
-        assert set(tfidf.token) == set(idf.index)
-
-    return tfidf, idf
 
 
 def build_token_freq(data, freq_filter=2, n_motifs=None) -> pd.DataFrame():
@@ -405,31 +345,12 @@ def build_cooccurrence_matrix(
     return cooc, rows, cols, row_pos, col_pos
 
 
-def bow_to_matrix(
-    bow: List[Tuple[int, Union[int, float]]], shape: Tuple
-) -> csr_array:
-    """
-
-    :param bow: list of (int, float) – BoW representation of document.
-    :param shape:
-    :return:
-    """
-    cs_data = np.array([[e[1], r, e[0]] for r, d in enumerate(bow) for e in d])
-    mat_tfidf = csr_array(
-        (cs_data[:, 0], (cs_data[:, 1], cs_data[:, 2])),
-        shape=shape,
-        dtype=np.float32,
-    )
-    return mat_tfidf
-
-
 def bow_to_dataframe(
     bow: List[Tuple[int, Union[int, float]]],
-    shape: Tuple,
     columns: Optional[List] = None,
     index: Optional[List] = None,
 ) -> pd.DataFrame:
-    mat = bow_to_matrix(bow, shape)
+    mat = corpus2csc(bow).T
     return pd.DataFrame(
-        mat.toarray(), columns=columns, index=index, dtype=np.float32
+        mat.toarray(), index=index, columns=columns, dtype=np.float32
     )
