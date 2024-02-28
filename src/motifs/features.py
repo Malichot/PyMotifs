@@ -5,7 +5,6 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from gensim import corpora, models
-from gensim.matutils import corpus2csc
 from joblib import Parallel, delayed
 from scipy.sparse import csr_array
 from scipy.stats import hypergeom
@@ -138,6 +137,7 @@ def build_tfidf(
         # Apply tfidf model
         tfidf = bow_to_dataframe(
             [model[d] for d in bow_corpus],
+            shape=(len(bow_corpus), len(dictionary.token2id)),
             columns=columns,
             index=docs,
         )
@@ -150,6 +150,7 @@ def build_tfidf(
         )
         tfidf = bow_to_dataframe(
             [model[d] for d in bow_corpus],
+            shape=(len(bow_corpus), len(dictionary.token2id)),
             columns=columns,
             index=docs,
         )
@@ -345,12 +346,31 @@ def build_cooccurrence_matrix(
     return cooc, rows, cols, row_pos, col_pos
 
 
+def bow_to_matrix(
+    bow: List[Tuple[int, Union[int, float]]], shape: Tuple
+) -> csr_array:
+    """
+
+    :param bow: list of (int, float) – BoW representation of document.
+    :param shape:
+    :return:
+    """
+    cs_data = np.array([[e[1], r, e[0]] for r, d in enumerate(bow) for e in d])
+    mat_tfidf = csr_array(
+        (cs_data[:, 0], (cs_data[:, 1], cs_data[:, 2])),
+        shape=shape,
+        dtype=np.float32,
+    )
+    return mat_tfidf
+
+
 def bow_to_dataframe(
     bow: List[Tuple[int, Union[int, float]]],
+    shape: Tuple,
     columns: Optional[List] = None,
     index: Optional[List] = None,
 ) -> pd.DataFrame:
-    mat = corpus2csc(bow).T
+    mat = bow_to_matrix(bow, shape)
     return pd.DataFrame(
-        mat.toarray(), index=index, columns=columns, dtype=np.float32
+        mat.toarray(), columns=columns, index=index, dtype=np.float32
     )
