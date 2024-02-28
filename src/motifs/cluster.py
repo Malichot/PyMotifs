@@ -1,4 +1,3 @@
-import json
 import os.path
 from typing import Optional, Union
 
@@ -20,7 +19,7 @@ def create_config_params(
 
     if projection is not None:
         if isinstance(projection, dict):
-            projection_name = projection.name
+            projection_name = projection["name"]
             params = projection.get(
                 "params", DEFAULT_PROJECTION_PARAMS[projection_name]
             )
@@ -32,7 +31,7 @@ def create_config_params(
         config["projection"] = {"name": projection_name, "params": params}
 
     if isinstance(cluster, dict):
-        cluster_name = cluster.name
+        cluster_name = cluster["name"]
         params = cluster.get("params", DEFAULT_CLUSTER_PARAMS[cluster_name])
     elif isinstance(cluster, str):
         cluster_name = cluster
@@ -51,34 +50,50 @@ class Cluster:
     :param embedding: name
     :param load_from_dir: Path to a previously fitted object. If provided then
     the estimators are loaded from the directory
+
+    :Example:
+
+    Cluster the Iris dataset
+
+    >>> from motifs.cluster import Cluster
+    >>> from sklearn import datasets
+
+    >>> iris = datasets.load_iris()
+    >>> cluster_params = {
+    >>>     "name": "DBSCAN",
+    >>>     "params": {"eps": 15, "min_samples": 10, "metric": "euclidean"}
+    >>> }
+    >>> cluster = Cluster(
+    >>>     projection="TSNE",
+    >>>     cluster=cluster_params,
+    >>> )
+    >>> cluster_labels = cluster.fit_predict(iris.data)
+    >>> print(cluster_labels)
+    >>> cluster.plot()
+
     """
 
     def __init__(
         self,
         projection: Union[str, dict] = "TSNE",
         cluster: Union[str, dict] = "DBSCAN",
-        load_from_dir: Optional[str] = None,
     ):
-        if load_from_dir is not None:
-            self.load(load_from_dir)
+        self.config = create_config_params(projection, cluster)
+        projection = self.config.get("projection")
+        if projection is None:
+            self.projector = None
         else:
-            self.config = create_config_params(projection, cluster)
-            projection = self.config.get("projection")
-            if projection is None:
-                self.projector = None
-            else:
-                if projection["name"] == "TSNE":
-                    self.projector = TSNE(**projection["params"])
-                else:
-                    raise NotImplementedError(projection)
-
-            cluster = self.config.get("cluster")
-            if cluster["name"] == "DBSCAN":
-                self.cluster = DBSCAN(**cluster["params"])
+            if projection["name"] == "TSNE":
+                self.projector = TSNE(**projection["params"])
             else:
                 raise NotImplementedError(projection)
+
+        cluster = self.config.get("cluster")
+        if cluster["name"] == "DBSCAN":
+            self.cluster = DBSCAN(**cluster["params"])
+        else:
+            raise NotImplementedError(projection)
         self.embedding = None
-        self.load_from_dir = load_from_dir
         self.is_fitted = False
 
     def fit_predict(self, X: np.ndarray):
@@ -116,9 +131,9 @@ class Cluster:
         cluster_labels = self.cluster.labels_
         n = len(cluster_labels)
         clustered_points = np.array(range(n))[cluster_labels != -1]
-        if len(clustered_points):
+        if len(set(cluster_labels[clustered_points])) > 1:
             silhouette_avg = silhouette_score(
-                self.embedding[clustered_points, :],
+                embedding[clustered_points, :],
                 cluster_labels[clustered_points],
                 metric="euclidean",
             )
@@ -148,21 +163,14 @@ class Cluster:
         )
         plt.show()
 
-    def save(self, model_dir: str):
-        if os.path.isdir(model_dir):
+    def save(self, path: str):
+        if os.path.isfile(path):
             raise ValueError(
-                f"The provided directory {model_dir} already exsits! "
+                f"The provided path {path} already exsits! "
                 "Choose a different one"
             )
-        else:
-            os.mkdir(model_dir)
+        dump(self, path)
 
-        json.dump(self.config, open(f"{model_dir}/config.json", "w"))
-        if self.projector is not None:
-            dump(self.projector, f"{model_dir}/projector.joblib")
-        dump(self.cluster, f"{model_dir}/cluster.joblib")
-
-    def load(self, model_dir: str):
-        self.config = json.load(open(f"{model_dir}/config.json", "r"))
-        self.projector = load(f"{model_dir}/projector.joblib")
-        self.cluster = load(f"{model_dir}/cluster.joblib")
+    @staticmethod
+    def load(path):
+        return load(path)
