@@ -1,15 +1,30 @@
 import os
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
+
+from motifs.config import LOGGER
 
 
-def load_tokens_from_directory(dir_):
-    files = [f for f in os.listdir(dir_) if f.endswith(".csv")]
-    tokens = pd.concat(
-        [pd.read_csv(f"{dir_}/{f}") for f in files], ignore_index=True
+def load_tokens_from_directory(dir_: str, docs: List[str] = None):
+    if docs is None:
+        docs = os.listdir(dir_)
+    files = [f for f in os.listdir(dir_) if f.endswith(".csv") and f in docs]
+
+    def worker(f):
+        path = f"{dir_}/{f}"
+        try:
+            return pd.read_csv(path)
+        except Exception as _exc:
+            LOGGER.error(f"Could not load file {path}")
+            LOGGER.exception(_exc)
+
+    tokens = Parallel(n_jobs=os.cpu_count(), prefer="threads")(
+        delayed(worker)(f) for f in files
     )
+    tokens = pd.concat(tokens, ignore_index=True)
     return tokens
 
 
@@ -30,7 +45,7 @@ def build_window_corpus(
     :return:
     """
     if not overlap:
-        assert n is not None, "You must provide n if overlap is True!"
+        assert n is not None, "You must provide n if overlap is False!"
     window_ngram = pd.DataFrame()
     for doc in ngrams.doc.unique():
         temp = ngrams[ngrams["doc"] == doc]
@@ -198,3 +213,29 @@ def return_to_text_from_spec(
             .sort_values(by=["spec", "doc"], ascending=False)
         )
     return output
+
+
+def filter_token_by_freq(
+    tokens: pd.DataFrame, f: int, groupby: Optional[str] = None
+) -> pd.DataFrame:
+    """
+    Filter out tokens that appear only $f$ times. If groupby is give,
+    then the count is computed at the groupby level.
+
+    :param tokens: a DataFrame with column "token" and `groupby` if given
+    :param f: the frequency
+    :param groupby: Level at which to compute the frequency
+    :return:
+    """
+    if groupby:
+        freq = tokens.groupby(groupby)["token"].value_counts()
+    else:
+        freq = tokens["token"].value_counts()
+    if groupby:
+        index_col = [groupby, "token"]
+    else:
+        index_col = "token"
+    tokens = (
+        tokens.set_index(index_col).loc[freq[freq > f].index].reset_index()
+    )
+    return tokens
