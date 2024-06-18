@@ -102,6 +102,7 @@ def facet_bar_plot(
     xlabel="count",
 ):
     """
+    Helper function to create a barplot using Seaborn.
 
     :param data: DataFrame of ngrams tokens with columns: [x, y, "doc"]
     where x has type supported by sns.barplot such as float.
@@ -147,11 +148,15 @@ def plot_motif_histogram(
     plot_type: str = "group",
 ):
     """
+    Create a histogram plot of the n-grams based on different statistics such
+    as "count" (default), "proportion", or "percent". The n_tokens
+    corresponds to the maximum number of tokens to represent on
+    the graph.
 
     :param ngrams: DataFrame of ngrams tokens with columns: ["token", "doc"]
     :param stat: One of ["count", "proportion", "percent"]
     :param n_tokens: Max number of tokens to plot
-    :param plot_type:
+    :param plot_type: "group" or "sep"
     :return:
     """
     freq = ngrams.groupby("doc").token.value_counts()

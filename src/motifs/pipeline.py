@@ -171,6 +171,12 @@ class Pipeline:
         **kwargs,
     ):
         """
+        Execute a predefined pipeline:
+            - Transform the corpus texts to n-grams
+            - If plot is True:
+                - show the histogram of the n-grams
+                - show the bar plot of the featurized tokens, such as TFIDF
+                - if method='pca', perform PCA analysis
 
         :param n: n-gram length
         :param feature:
