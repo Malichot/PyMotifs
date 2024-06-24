@@ -30,9 +30,6 @@ dependencies = [
 	"scipy==1.11.4"
 ]
 
-[project.optional-dependencies]
-notebooks = ["notebook>=7.0.6",]
-
 [project.urls]
 Homepage = "https://gitlab.huma-num.fr/adesacy/PyMotifs"
 
@@ -46,6 +43,7 @@ motifs = ["data/**"]
 
 [project.optional-dependencies]
 dev = ["black", "isort", "pytest", "pre-commit"]
+notebooks = ["notebook>=7.0.6",]
 
 [tool.black]
 line-length = 79
