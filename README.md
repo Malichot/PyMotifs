@@ -1,5 +1,9 @@
 # PyMotifs:
 
+This project, lead by Antoine Silvestre de Sacy and Dominique Legallois (CNRS, Université Paris III - Sorbonne-Nouvelle), was supported by the European infrastructure DARIAH via a bi-annual thematic funding call on the theme of Workflows. 
+
+PyMotifs is an open-source python library for modeling, classifying and analyzing texts in the humanities. All functions are pre-coded and documented.
+
 ## Structure of the repo:
 
 The source package is located in `src`. Please refer to the `notebooks`
