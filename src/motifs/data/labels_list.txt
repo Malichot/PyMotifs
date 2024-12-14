@@ -1,0 +1,26 @@
+# Liste des étiquettes
+
+Voici la liste de l'ensemble des étiquettes et leur signification au sein de l'annotation en motifs des textes. Pour retrouver l'ensemble des mots attachés à certaines de ces étiquetes, voir le fichier fr_motifs.json.
+
+- NC : nom commun.
+- ADJ : adjectif.
+- NP : Nom propre.
+- DETPOSS : déterminant possessif.
+- ADV : adverbe.
+- NUM : chiffre, nombre.
+- NCCOR : nom commun, partie du corps.
+- NCABS : nom commun abstrait.
+- ADVFRE : adverbe de fréquence.
+- ADVPHA : adverbe de phase
+- ADVHAB : adverbe d'habitude.
+- ADVMAN : adverbe de manière.
+
+- INF : verbe à l'infinitif.
+- PPAS : participe passé.
+- PPRES : participe présent.
+- PRES : verbe au présent.
+- VIMP : verbe à l'imparfait.
+- VPS : verbe au passé simple.
+- VCOND : verbe au conditionnel.
+- VSUB : verbe au subjonctif.
+- VSUBI : verbe au subjonctif imparfait.
